@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Permissions - Chirpbot Admin</title>
+    <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body {
+            background: linear-gradient(135deg, #1a1a2e 0%, #0f0f1e 100%);
+            min-height: 100vh;
+        }
+
+        .dashboard-header {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 1.5rem 0;
+            margin-bottom: 2rem;
+        }
+
+        .permission-card {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            transition: all 0.3s ease;
+        }
+
+        .permission-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+        }
+
+        .permission-category {
+            border-left: 4px solid;
+            padding-left: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .category-monitoring { border-left-color: #28a745; }
+        .category-alerts { border-left-color: #ffc107; }
+        .category-stats { border-left-color: #17a2b8; }
+        .category-admin { border-left-color: #dc3545; }
+
+        .user-row {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 10px;
+            padding: 1rem;
+            margin-bottom: 1rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .permission-toggle {
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .permission-toggle:hover {
+            transform: scale(1.1);
+        }
+
+        .user-badge {
+            display: inline-block;
+            padding: 0.35rem 0.65rem;
+            border-radius: 20px;
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+
+        .badge-admin {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+
+        .badge-user {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .save-changes {
+            position: fixed;
+            bottom: 2rem;
+            right: 2rem;
+            z-index: 1000;
+        }
+
+        .permission-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+
+        .permission-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem;
+            background: rgba(255, 255, 255, 0.02);
+            border-radius: 8px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard-header">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h1 class="mb-0">
+                        <img src="{{ url_for('static', filename='img/chirpbot-logo.png') }}" alt="Chirpbot" class="me-3" style="height: 50px; width: auto;">
+                        User Permissions Management
+                    </h1>
+                    <p class="text-muted mb-0 mt-2">
+                        Control what users can see and access in Chirpbot
+                    </p>
+                </div>
+                <div class="col-md-4 text-md-end">
+                    <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-secondary me-2">
+                        <i class="fas fa-arrow-left me-2"></i>Back to Dashboard
+                    </a>
+                    <a href="{{ url_for('logout') }}" class="btn btn-outline-danger">
+                        <i class="fas fa-sign-out-alt me-2"></i>Logout
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Global Permission Templates -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="permission-card">
+                    <h4 class="mb-3">
+                        <i class="fas fa-layer-group me-2"></i>Permission Templates
+                    </h4>
+                    <p class="text-muted mb-3">Quick apply common permission sets to users</p>
+                    
+                    <div class="row">
+                        <div class="col-md-3">
+                            <button class="btn btn-success w-100 mb-2" onclick="applyTemplate('full_access')">
+                                <i class="fas fa-unlock me-2"></i>Full Access
+                            </button>
+                        </div>
+                        <div class="col-md-3">
+                            <button class="btn btn-warning w-100 mb-2" onclick="applyTemplate('monitoring_only')">
+                                <i class="fas fa-tv me-2"></i>Monitoring Only
+                            </button>
+                        </div>
+                        <div class="col-md-3">
+                            <button class="btn btn-info w-100 mb-2" onclick="applyTemplate('alerts_only')">
+                                <i class="fas fa-bell me-2"></i>Alerts Only
+                            </button>
+                        </div>
+                        <div class="col-md-3">
+                            <button class="btn btn-secondary w-100 mb-2" onclick="applyTemplate('read_only')">
+                                <i class="fas fa-eye me-2"></i>Read Only
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- User-Specific Permissions -->
+        <div class="row">
+            <div class="col-12">
+                <div class="permission-card">
+                    <h4 class="mb-3">
+                        <i class="fas fa-users-cog me-2"></i>User Permissions
+                    </h4>
+                    
+                    {% for user in all_users %}
+                    <div class="user-row" id="user-{{ user.id }}">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <div>
+                                <h6 class="mb-1">
+                                    {{ user.username }}
+                                    <span class="user-badge badge-{% if user.is_admin %}admin{% else %}user{% endif %} ms-2">
+                                        {% if user.is_admin %}Admin{% else %}User{% endif %}
+                                    </span>
+                                </h6>
+                                <small class="text-muted">{{ user.email }}</small>
+                            </div>
+                            <div>
+                                <button class="btn btn-sm btn-outline-info me-2" onclick="resetUserPermissions('{{ user.id }}')">
+                                    <i class="fas fa-undo me-1"></i>Reset
+                                </button>
+                                {% if not user.is_admin %}
+                                <button class="btn btn-sm btn-outline-warning" onclick="toggleAdminStatus('{{ user.id }}')">
+                                    <i class="fas fa-user-shield me-1"></i>Make Admin
+                                </button>
+                                {% endif %}
+                            </div>
+                        </div>
+
+                        <!-- Permission Categories -->
+                        <div class="row">
+                            <!-- Game Monitoring Permissions -->
+                            <div class="col-md-6">
+                                <div class="permission-category category-monitoring">
+                                    <h6><i class="fas fa-tv me-2"></i>Game Monitoring</h6>
+                                    <div class="permission-grid">
+                                        <div class="permission-item">
+                                            <span>View Live Games</span>
+                                            <input type="checkbox" class="form-check-input permission-toggle" 
+                                                   data-user="{{ user.id }}" data-permission="view_games" checked>
+                                        </div>
+                                        <div class="permission-item">
+                                            <span>Start Monitoring</span>
+                                            <input type="checkbox" class="form-check-input permission-toggle" 
+                                                   data-user="{{ user.id }}" data-permission="start_monitoring" checked>
+                                        </div>
+                                        <div class="permission-item">
+                                            <span>Configure Alerts</span>
+                                            <input type="checkbox" class="form-check-input permission-toggle" 
+                                                   data-user="{{ user.id }}" data-permission="configure_alerts" checked>
+                                        </div>
+                                        <div class="permission-item">
+                                            <span>Weather Integration</span>
+                                            <input type="checkbox" class="form-check-input permission-toggle" 
+                                                   data-user="{{ user.id }}" data-permission="weather_access" checked>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Alert System Permissions -->
+                            <div class="col-md-6">
+                                <div class="permission-category category-alerts">
+                                    <h6><i class="fas fa-bell me-2"></i>Alert System</h6>
+                                    <div class="permission-grid">
+                                        <div class="permission-item">
+                                            <span>Receive Alerts</span>
+                                            <input type="checkbox" class="form-check-input permission-toggle" 
+                                                   data-user="{{ user.id }}" data-permission="receive_alerts" checked>
+                                        </div>
+                                        <div class="permission-item">
+                                            <span>Telegram Integration</span>
+                                            <input type="checkbox" class="form-check-input permission-toggle" 
+                                                   data-user="{{ user.id }}" data-permission="telegram_alerts" checked>
+                                        </div>
+                                        <div class="permission-item">
+                                            <span>AI Enhanced Alerts</span>
+                                            <input type="checkbox" class="form-check-input permission-toggle" 
+                                                   data-user="{{ user.id }}" data-permission="ai_alerts" checked>
+                                        </div>
+                                        <div class="permission-item">
+                                            <span>Power Hitter Alerts</span>
+                                            <input type="checkbox" class="form-check-input permission-toggle" 
+                                                   data-user="{{ user.id }}" data-permission="power_alerts" checked>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row mt-3">
+                            <!-- Statistics & Analytics -->
+                            <div class="col-md-6">
+                                <div class="permission-category category-stats">
+                                    <h6><i class="fas fa-chart-line me-2"></i>Statistics & Analytics</h6>
+                                    <div class="permission-grid">
+                                        <div class="permission-item">
+                                            <span>Alert Success Rate</span>
+                                            <input type="checkbox" class="form-check-input permission-toggle" 
+                                                   data-user="{{ user.id }}" data-permission="success_rate" checked>
+                                        </div>
+                                        <div class="permission-item">
+                                            <span>Historical Data</span>
+                                            <input type="checkbox" class="form-check-input permission-toggle" 
+                                                   data-user="{{ user.id }}" data-permission="historical_data" checked>
+                                        </div>
+                                        <div class="permission-item">
+                                            <span>Export Data</span>
+                                            <input type="checkbox" class="form-check-input permission-toggle" 
+                                                   data-user="{{ user.id }}" data-permission="export_data" checked>
+                                        </div>
+                                        <div class="permission-item">
+                                            <span>Math Engine Stats</span>
+                                            <input type="checkbox" class="form-check-input permission-toggle" 
+                                                   data-user="{{ user.id }}" data-permission="math_stats" checked>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Admin Features -->
+                            <div class="col-md-6">
+                                <div class="permission-category category-admin">
+                                    <h6><i class="fas fa-cogs me-2"></i>System Features</h6>
+                                    <div class="permission-grid">
+                                        <div class="permission-item">
+                                            <span>Settings Sync</span>
+                                            <input type="checkbox" class="form-check-input permission-toggle" 
+                                                   data-user="{{ user.id }}" data-permission="settings_sync" checked>
+                                        </div>
+                                        <div class="permission-item">
+                                            <span>Auto Monitoring</span>
+                                            <input type="checkbox" class="form-check-input permission-toggle" 
+                                                   data-user="{{ user.id }}" data-permission="auto_monitoring" checked>
+                                        </div>
+                                        <div class="permission-item">
+                                            <span>Debug Logs</span>
+                                            <input type="checkbox" class="form-check-input permission-toggle" 
+                                                   data-user="{{ user.id }}" data-permission="debug_logs" 
+                                                   {% if not user.is_admin %}disabled{% else %}checked{% endif %}>
+                                        </div>
+                                        <div class="permission-item">
+                                            <span>System Health</span>
+                                            <input type="checkbox" class="form-check-input permission-toggle" 
+                                                   data-user="{{ user.id }}" data-permission="system_health" 
+                                                   {% if not user.is_admin %}disabled{% else %}checked{% endif %}>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Save Changes Button -->
+    <div class="save-changes">
+        <button class="btn btn-primary btn-lg" onclick="savePermissions()" id="saveButton" disabled>
+            <i class="fas fa-save me-2"></i>Save Changes
+        </button>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let permissionChanges = {};
+        let hasChanges = false;
+
+        // Track permission changes
+        document.querySelectorAll('.permission-toggle').forEach(toggle => {
+            toggle.addEventListener('change', function() {
+                const userId = this.dataset.user;
+                const permission = this.dataset.permission;
+                const checked = this.checked;
+
+                if (!permissionChanges[userId]) {
+                    permissionChanges[userId] = {};
+                }
+                permissionChanges[userId][permission] = checked;
+
+                hasChanges = true;
+                document.getElementById('saveButton').disabled = false;
+                document.getElementById('saveButton').classList.add('btn-warning');
+                document.getElementById('saveButton').innerHTML = '<i class="fas fa-exclamation-triangle me-2"></i>Unsaved Changes';
+            });
+        });
+
+        // Apply permission templates
+        function applyTemplate(template) {
+            const templates = {
+                full_access: {
+                    view_games: true,
+                    start_monitoring: true,
+                    configure_alerts: true,
+                    weather_access: true,
+                    receive_alerts: true,
+                    telegram_alerts: true,
+                    ai_alerts: true,
+                    power_alerts: true,
+                    success_rate: true,
+                    historical_data: true,
+                    export_data: true,
+                    math_stats: true,
+                    settings_sync: true,
+                    auto_monitoring: true
+                },
+                monitoring_only: {
+                    view_games: true,
+                    start_monitoring: true,
+                    configure_alerts: false,
+                    weather_access: false,
+                    receive_alerts: false,
+                    telegram_alerts: false,
+                    ai_alerts: false,
+                    power_alerts: false,
+                    success_rate: false,
+                    historical_data: false,
+                    export_data: false,
+                    math_stats: false,
+                    settings_sync: true,
+                    auto_monitoring: false
+                },
+                alerts_only: {
+                    view_games: false,
+                    start_monitoring: false,
+                    configure_alerts: true,
+                    weather_access: false,
+                    receive_alerts: true,
+                    telegram_alerts: true,
+                    ai_alerts: false,
+                    power_alerts: true,
+                    success_rate: true,
+                    historical_data: false,
+                    export_data: false,
+                    math_stats: false,
+                    settings_sync: true,
+                    auto_monitoring: false
+                },
+                read_only: {
+                    view_games: true,
+                    start_monitoring: false,
+                    configure_alerts: false,
+                    weather_access: false,
+                    receive_alerts: false,
+                    telegram_alerts: false,
+                    ai_alerts: false,
+                    power_alerts: false,
+                    success_rate: true,
+                    historical_data: true,
+                    export_data: false,
+                    math_stats: true,
+                    settings_sync: false,
+                    auto_monitoring: false
+                }
+            };
+
+            const templatePerms = templates[template];
+            document.querySelectorAll('.permission-toggle').forEach(toggle => {
+                const permission = toggle.dataset.permission;
+                if (templatePerms.hasOwnProperty(permission) && !toggle.disabled) {
+                    toggle.checked = templatePerms[permission];
+                    toggle.dispatchEvent(new Event('change'));
+                }
+            });
+        }
+
+        // Reset user permissions
+        function resetUserPermissions(userId) {
+            const userToggles = document.querySelectorAll(`[data-user="${userId}"]`);
+            userToggles.forEach(toggle => {
+                if (!toggle.disabled) {
+                    toggle.checked = true;
+                    toggle.dispatchEvent(new Event('change'));
+                }
+            });
+        }
+
+        // Toggle admin status
+        function toggleAdminStatus(userId) {
+            if (confirm('Are you sure you want to make this user an admin? This will grant them full system access.')) {
+                fetch('/api/admin/toggle-admin-status', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        user_id: userId,
+                        make_admin: true
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        location.reload();
+                    } else {
+                        alert('Error: ' + data.error);
+                    }
+                });
+            }
+        }
+
+        // Save permissions
+        function savePermissions() {
+            if (!hasChanges) return;
+
+            const saveButton = document.getElementById('saveButton');
+            saveButton.disabled = true;
+            saveButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Saving...';
+
+            fetch('/api/admin/save-permissions', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    permissions: permissionChanges
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    hasChanges = false;
+                    permissionChanges = {};
+                    saveButton.classList.remove('btn-warning');
+                    saveButton.classList.add('btn-success');
+                    saveButton.innerHTML = '<i class="fas fa-check me-2"></i>Saved Successfully';
+                    
+                    setTimeout(() => {
+                        saveButton.disabled = true;
+                        saveButton.classList.remove('btn-success');
+                        saveButton.classList.add('btn-primary');
+                        saveButton.innerHTML = '<i class="fas fa-save me-2"></i>Save Changes';
+                    }, 2000);
+                } else {
+                    alert('Error saving permissions: ' + data.error);
+                    saveButton.disabled = false;
+                    saveButton.innerHTML = '<i class="fas fa-exclamation-triangle me-2"></i>Unsaved Changes';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error saving permissions');
+                saveButton.disabled = false;
+                saveButton.innerHTML = '<i class="fas fa-exclamation-triangle me-2"></i>Unsaved Changes';
+            });
+        }
+
+        // Warn about unsaved changes
+        window.addEventListener('beforeunload', function(e) {
+            if (hasChanges) {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        });
+    </script>
+</body>
+</html>

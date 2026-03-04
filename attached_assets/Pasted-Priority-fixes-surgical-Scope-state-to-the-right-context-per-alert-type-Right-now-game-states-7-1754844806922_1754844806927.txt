@@ -1,0 +1,178 @@
+Priority fixes (surgical)
+Scope state to the right context (per alert type)
+Right now game_states["776789_power_hitter"] = "Wilyer Abreu_21" persists across innings/at‑bats. Make the state key include the plate appearance (best) or at least half‑inning.
+
+Power hitter: simple_key = f"{game_id}_power_hitter_{half_inning}_{pa_id_or_atBatIndex}"
+
+Runners: simple_key = f"{game_id}_runners_{half_inning}" (so a new half‑inning resets the “same runners” block)
+
+Use an alert‑type schema for dedup keys
+Centralize the “what counts as a new situation” per alert type:
+
+power_hitter: content = f"{batter_id}_{season_hr}_{pa_id_or_atBatIndex}"
+(season HR alone is too static; PA guarantees re‑alerts only once per AB)
+
+runners: content = f"{bases_hash}_{outs}_{batter_id}_{pa_id_or_atBatIndex}"
+(same 1B in a new PA should be allowed; same 1B within the same PA should be blocked)
+
+scoring/hit/HR: include the official playId or eventId from the feed so one play = one alert
+
+Fix the cleanup window mismatch
+You said: monitoring window = 15s but cleanup runs at 4s (2× base window). That means entries for monitoring alerts can be wiped before their window expires, letting dupes slip through.
+
+Make cleanup >= max(alert_type_window) + small buffer, e.g. 20–30s.
+
+Or store each key with its own expiry and delete per‑key when now > expiry.
+
+Add re‑alert policy instead of “alert once per game”
+For sticky states like runners on 1B, allow a controlled re‑alert:
+
+Re‑alert after state change (outs change, new batter, new inning) OR after T seconds if the state persists (e.g., every 90–120s) with a lighter “still runners on 1B” message.
+
+Minimal code changes (drop-in pattern)
+A. Centralize alert configs
+
+python
+Copy
+Edit
+ALERT_CONFIG = {
+    "power_hitter": {
+        "window": 15,
+        "scope": "plate_appearance",   # options: play, plate_appearance, half_inning, game
+        "content_fields": ["batter_id", "season_hr", "pa_id"],  # pa_id = atBatIndex
+        "realert_after_secs": None
+    },
+    "runners": {
+        "window": 15,
+        "scope": "half_inning",
+        "content_fields": ["bases_hash", "outs", "batter_id", "pa_id"],
+        "realert_after_secs": 120      # allow a gentle ping if unchanged
+    },
+    "hit": {
+        "window": 15,
+        "scope": "play",
+        "content_fields": ["play_id"],
+        "realert_after_secs": None
+    },
+    # ...others...
+}
+B. Build keys per type
+
+python
+Copy
+Edit
+def _half_inning_key(game):
+    # top/bottom + inning number from feed
+    return f"{game['about']['isTopInning']}_{game['about']['inning']}"
+
+def _plate_appearance_id(play):
+    # prefer official atBatIndex if available
+    return play.get("about", {}).get("atBatIndex")
+
+def _bases_hash(runners):
+    # stable order
+    return "_".join(sorted(runners)) if runners else "EMPTY"
+
+def _make_keys(game_id, alert_type, data):
+    cfg = ALERT_CONFIG[alert_type]
+    half_inning = data.get("half_inning") or _half_inning_key(data["context_game"])
+    pa_id = data.get("pa_id") or _plate_appearance_id(data.get("context_play", {}))
+
+    # content per config
+    content_pieces = []
+    for f in cfg["content_fields"]:
+        if f == "bases_hash":
+            content_pieces.append(_bases_hash(data.get("runners")))
+        elif f == "pa_id":
+            content_pieces.append(str(pa_id))
+        else:
+            content_pieces.append(str(data.get(f)))
+    content = "|".join(content_pieces)
+
+    # scope → simple key
+    if cfg["scope"] == "play":
+        simple = f"{game_id}_{alert_type}_{data.get('play_id')}"
+    elif cfg["scope"] == "plate_appearance":
+        simple = f"{game_id}_{alert_type}_{half_inning}_{pa_id}"
+    elif cfg["scope"] == "half_inning":
+        simple = f"{game_id}_{alert_type}_{half_inning}"
+    else:
+        simple = f"{game_id}_{alert_type}"
+
+    dedup = f"{game_id}_{alert_type}_{content}"
+    return simple, dedup, cfg
+C. Rewrite _is_new_alert to use per-type logic + re‑alert
+
+python
+Copy
+Edit
+def _is_new_alert(self, game_id: int, alert_type: str, data) -> bool:
+    simple_key, dedup_key, cfg = _make_keys(game_id, alert_type, data)
+    now = time.time()
+
+    # time-based throttle
+    last_ts = self.recent_alerts.get(dedup_key)
+    if last_ts and (now - last_ts) < cfg["window"]:
+        return False
+
+    # state-based gate with scoped state
+    prev_state = self.game_states.get(simple_key)
+    if prev_state == data.get("state_value"):  # you set state_value per alert usage
+        # consider re‑alert if configured (persistent condition)
+        ra = cfg.get("realert_after_secs")
+        if ra:
+            last_sent = self.last_sent_by_simple.get(simple_key, 0)
+            if (now - last_sent) >= ra:
+                return True  # allow periodic reminder
+        return False
+
+    return True
+D. Update tracking + cleanup
+
+python
+Copy
+Edit
+def _add_alert(..., alert_type: str, data: dict):
+    simple_key, dedup_key, cfg = _make_keys(game_id, alert_type, data)
+    now = time.time()
+    self.recent_alerts[dedup_key] = now
+    # define what “state_value” means per alert before calling _is_new_alert
+    self.game_states[simple_key] = data.get("state_value")
+    self.last_sent_by_simple[simple_key] = now
+
+def _cleanup_old_alerts(self, current_time: float):
+    # Use per-key expiry based on each alert_type window
+    to_del = []
+    for k, ts in self.recent_alerts.items():
+        # decode alert_type from key: {game}_{type}_{content}
+        try:
+            alert_type = k.split("_", 2)[1]
+            ttl = ALERT_CONFIG.get(alert_type, {}).get("window", self.alert_dedup_window)
+        except Exception:
+            ttl = self.alert_dedup_window
+        if current_time - ts > (ttl + 10):  # buffer
+            to_del.append(k)
+    for k in to_del:
+        self.recent_alerts.pop(k, None)
+
+    # Optionally prune game_states by inning: drop states from prior half-innings
+How this fixes your two concrete problems
+Power hitter: key now includes PA; you’ll get one alert per at‑bat (no spam within the same AB), and future ABs are allowed even with the same season HR count.
+
+Runners: state scoped to half‑inning + PA/batter. Same 1B in new PA or new half‑inning will alert again. If a runner sits on 1B forever, a gentle re‑alert can fire after e.g. 120s (configurable), which helps live bettors who joined late.
+
+Extra guardrails (optional but useful)
+Max per period: cap “runners” to N alerts per half‑inning to prevent edge-case loops.
+
+Value-weighted bypass: allow high‑EV events (e.g., bases loaded, 0 outs, top sluggers) to bypass time throttle once per PA.
+
+Debug counters: log why an alert was blocked (TIME_WINDOW, STATE_SAME, MAX_PER_PERIOD) to see which rule hurts coverage.
+
+Quick test plan
+Sim replay of one game with a power hitter getting 3 ABs: expect 3 alerts.
+
+Inning with sticky runner on 1B across two batters: expect 2 alerts (new batter), not more within the same PA.
+
+Long jam (runners on 2nd/3rd for 3 minutes): expect initial alert + one periodic re‑alert if unchanged.
+
+If you want, paste your _is_new_alert, _add_alert, and the power_hitter / runners call sites and I’ll tailor the exact state_value and content_fields to your data objects so this drops in with minimal fuss.

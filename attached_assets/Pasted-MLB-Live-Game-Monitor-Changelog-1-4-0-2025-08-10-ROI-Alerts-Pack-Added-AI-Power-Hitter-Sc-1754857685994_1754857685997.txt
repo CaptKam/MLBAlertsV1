@@ -1,0 +1,147 @@
+MLB Live Game Monitor — Changelog
+[1.4.0] — 2025‑08‑10 (ROI Alerts Pack)
+Added
+AI: Power Hitter + Scoring Opportunity (checkbox)
+
+Triggers when a batter with a high Power Alert Score (internal 0–100) is on deck or at‑bat and there’s a high‑leverage run opportunity (e.g., RISP, ≤2 outs, tie/one‑run game, late innings).
+
+Includes park, weather (wind out/temperature), platoon split, pitcher HR susceptibility, and recent barrels.
+
+Priority: High. Dedup window: 90s, immediate re‑alert on tier upgrade (B→A).
+
+AI: Power Hitter — High‑Confidence (checkbox)
+
+Fires on Tier A Power Alert Score (≥70) regardless of RISP, but gated to on‑deck/at‑bat only.
+
+Optimized for quick swing props/HR markets and “to record XBH” spots.
+
+Priority: High. Dedup window: 90s.
+
+Pitcher Softening (Fatigue/Contact) Check (checkbox)
+
+Detects pitcher deterioration using:
+
+3rd time through order (TTO≥3),
+
+Last two innings hard‑hit%↑ or EV↑,
+
+HR/9 last 30d ≥ 75th percentile or rising trend within game (FB%↑/miss↓),
+
+Pitch count over threshold (default 75/90 for SPs) and velo drop ≥ 1.0 mph from inning 1 average (if available).
+
+Publishes when ≥2 conditions confirm softening.
+
+Priority: Medium–High. Dedup window: 120s.
+
+Pitcher: 8+ Balls in a Row (checkbox)
+
+Fires when any pitcher throws 8 consecutive balls (walks/near loss of command).
+
+Adds context: last two PAs outcomes, bullpen status (if known), base/out state.
+
+Priority: High (immediate betting implications on live totals/walk props). Dedup window: 60s; re‑alert at 10 and 12 balls.
+
+Changed
+Monitor → Choose What to Monitor gained a new AI Alerts section:
+
+☐ AI: Power Hitter + Scoring Opportunity
+
+☐ AI: Power Hitter — High‑Confidence
+
+☐ Pitcher Softening (Fatigue/Contact)
+
+☐ Pitcher: 8+ Balls in a Row
+
+Alert payloads now include:
+
+score, tier, why[] for AI power hitter alerts,
+
+softening_reasons[] for pitcher fatigue,
+
+ball_streak for command loss,
+
+roi_hint with a short suggestion like "HR/XTBR", "Live total over", or "Opp team TT over".
+
+Fixed
+Dedup keys upgraded to include tier + rounded score + inning so upgrades surface immediately without spam.
+
+Race condition on quick state flips (on_deck → at_bat) no longer drops the alert.
+
+Configuration
+Default thresholds (tunable in .env or config):
+
+POWER_SCORE_TIER_A=70
+
+POWER_SCORE_TIER_B=55
+
+SOFTEN_MIN_SIGNALS=2
+
+BALL_STREAK_LEVELS=8,10,12
+
+ALERT_WINDOW_HIGH=90s, ALERT_WINDOW_MED=120s, ALERT_WINDOW_SHORT=60s
+
+UI labels (for settings panel):
+
+AI: Power Hitter + Scoring Opportunity → ai_power_plus_scoring
+
+AI: Power Hitter — High‑Confidence → ai_power_high
+
+Pitcher Softening (Fatigue/Contact) → pitcher_softening
+
+Pitcher: 8+ Balls in a Row → pitcher_ball_streak
+
+Alert Definitions (for reference)
+AI: Power Hitter + Scoring Opportunity
+
+Gate: state ∈ {on_deck, at_bat} AND RISP=True OR (Leverage≥0.7).
+
+Condition: PowerScore≥55 (Tier B+) OR Tier A.
+
+Priority hint: roi_hint="HR/XTBR or opp TT over if softening".
+
+AI: Power Hitter — High‑Confidence
+
+Gate: state ∈ {on_deck, at_bat}.
+
+Condition: PowerScore≥70 (Tier A).
+
+Priority hint: roi_hint="HR, XBH, TB over".
+
+Pitcher Softening
+
+Signals: (TTO≥3) + (EV↑ or HardHit%↑) + (HR/9_30d_high OR velo_drop≥1.0mph OR pitch_count_high).
+
+Fire when signals_met ≥ SOFTEN_MIN_SIGNALS.
+
+Priority hint: roi_hint="Live over, opp TT, next PA hit props".
+
+8+ Balls in a Row
+
+Condition: ball_streak ≥ 8 (re‑alert at 10,12).
+
+Priority hint: roi_hint="Walk props, live over, opp TT".
+
+Dedup Keys & Windows (implementation note)
+Base: f"{game_id}_{alert_type}_{subject_id}"
+
+Content key:
+
+Power hitter: f"{tier}_{round(score)}_{pitcher_id}_{inning}"
+
+Softening: f"{signals_met}_{tto}_{inning}"
+
+Ball streak: f"{ball_streak}_{inning}"
+
+Windows: A/B=90s, Softening=120s, BallStreak=60s.
+
+Upgrade rule: If content key changes to a higher severity (e.g., B→A or 8→10 balls), bypass window and alert immediately.
+
+Logging & QA
+New fields in alerts.log: components, softening_reasons, ball_streak.
+
+Sampled telemetry (1/10 alerts) records pre‑filter candidates for post‑hoc ROI tuning.
+
+Migration Notes
+No DB schema migration required; config adds safe defaults.
+
+Ensure env has weather/park inputs available for AI Power alerts; if missing, model degrades gracefully with neutral weights.

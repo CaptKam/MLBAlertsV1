@@ -1,0 +1,213 @@
+ROI+ Early-Notice Upgrades
+1) Pre‑PA Power Windows (15–60s earlier than today)
+Why it prints: You beat the price move that happens once batter steps in and broadcast mentions the spot.
+
+New alerts
+
+On‑Deck Power Spike (A/B Tier)
+Trigger: state==on_deck AND PowerScore≥65 (A) OR ≥55 (B); park/weather favorable; pitcher HR trend neutral+
+Key: on_deck_power_spike (✅ default on)
+ROI hint: HR/XTBR, TB over, opp TT if pitcher softening
+
+Impending Platoon Smash
+Trigger: On‑deck batter has platoon_iso_delta ≥ +.040 AND opponent warming a same‑hand weak reliever (or starter staying for TTO=3)
+Key: impending_platoon (✅)
+ROI hint: HR/XTBR, next PA hit
+
+Pinch‑Hitter Power Risk/Opportunity
+Trigger: Starter due up with severe platoon disadvantage and bench has high‑ISO platoon bat; late innings; RISP or leverage≥0.7
+Key: pinch_hit_power_watch (❌)
+ROI hint: PA outcome props; fade K over for pitcher
+
+2) Pre‑Pitch Command & Count Momentum (5–20s earlier)
+Why it prints: Books lag on micro command collapses; totals/team totals adjust after the walk/hit.
+
+New alerts
+
+Non‑Competitive Pitch Cluster
+Trigger: Any 3 of last 4 pitches ≥ 1.0 ft outside zone (or called balls) AND ahead of a power or high‑EV batter
+Key: noncomp_cluster (✅)
+ROI hint: Walk props, live over, opp TT
+
+Behind‑In‑Count Danger
+Trigger: Count becomes 2–0 or 3–1, pitcher with BB% 70th+ pct or CSW% ≤ league‑avg, RISP or A‑tier batter
+Key: behind_count_power (✅)
+ROI hint: TB/HR for batter, walk props
+
+Pitch Timer/Tempo Stress
+Trigger: Back‑to‑back timer violations or time to deliver 2× baseline in inning; velocity down ≥1.0 mph this PA
+Key: tempo_stress (❌)
+ROI hint: Live over, next PA hit
+
+8+ Balls Streak (upgrade path)
+Already in v1.4.0. Add pre‑streak at 6 balls with lower priority to enter early.
+Key: ball_streak_pre (❌)
+
+3) Fatigue/Softening 2.0 (1–2 batters earlier)
+Why it prints: You act before the hook or broadcast call → lines move on the hook.
+
+New alerts
+
+Impending Hook (Manager Pattern)
+Trigger: TTO=3, pitch count≥90, bullpen hot (detected) AND on‑deck platoon disadvantage for pitcher
+Key: impending_hook (✅)
+ROI hint: Opp TT over, next 0.5 runs, fade Ks
+
+First‑Batter Reliever Risk
+Trigger: New reliever entering with reverse splits vs upcoming batter OR back‑to‑back days flag
+Key: reliever_first_batter_risk (✅)
+ROI hint: Next PA hit/HR, opp TT
+
+Pitch Mix Drift (Meatball Mode)
+Trigger: In last 8 pitches, ≥60% fastballs middle/middle or belt (zone heat) + EV↑; count leverage neutral+
+Key: pitch_mix_drift (❌)
+ROI hint: XBH/HR, live over
+
+4) Weather & Venue Micro‑Edges (pre‑inning)
+Why it prints: Minute‑level gusts/heat bumps pop HR odds before markets catch up.
+
+New alerts
+
+Gust Spike
+Trigger: Wind out increases ≥5 mph within 3 minutes AND park HR factor ≥1.05; due up includes Tier B+ power
+Key: gust_spike (✅)
+ROI hint: HR/XTBR, HRFI if T1 upcoming
+
+Heat Step‑Up
+Trigger: In‑game temp crosses ≥85°F (from <82) + wind out ≥6 mph; next half‑inning
+Key: heat_step_up (❌)
+
+5) Basepath Threats Before They Happen
+Why it prints: You grab SB lines or live totals before the attempt.
+
+New alerts
+
+Impending Steal
+Trigger: Runner with SB attempt rate 80th+ pct facing pitcher slow to plate or catcher CS% ≤ league‑avg, <2 outs, count 1–0/2–1
+Key: impending_steal (❌)
+ROI hint: SB props (if offered), live over micro
+
+Bunt/Small‑Ball Expectation
+Trigger: Tie/one‑run game, 8th+, runner on 1st/2nd, batter bunt tendency 70th+ pct
+Key: bunt_expectation (❌)
+ROI hint: Unders on K (avoid SO), situational hit props
+
+6) Market Window Detector (optional but nasty-good)
+Why it prints: You pounce during latency gaps between stat change and book move.
+
+New alerts
+
+Steam Early Warning
+Trigger: Watch 1–2 reference books; if odds velocity (|Δprice|/Δt) exceeds threshold in related markets (e.g., live total), but your target market hasn’t moved yet
+Key: steam_early_warning (❌)
+ROI hint: Enter stale number now
+
+(If you don’t have odds feeds yet, park this for later.)
+
+Exact Triggers & Thresholds (copy/paste)
+yaml
+Copy
+Edit
+on_deck_power_spike:
+  gate: state == on_deck
+  conditions:
+    - PowerScore >= 65   # or >=55 for B-tier variant
+    - park_hr_factor >= 1.00
+    - wind_out_mph >= 4 or temp_f >= 80
+  dedup_window: 60s
+  priority: High
+
+impending_platoon:
+  gate: state in [on_deck, at_bat]
+  conditions:
+    - platoon_iso_delta >= 0.040
+    - (tto >= 3) or (weak_same_hand_reliever_warming == true)
+  dedup_window: 60s
+  priority: High
+
+noncomp_cluster:
+  gate: state == at_bat
+  conditions:
+    - noncomp_pitches_last4 >= 3  # balls or 12+ inches off target
+    - (batter_power_tier in [A,B])
+  dedup_window: 30s
+  priority: High
+
+behind_count_power:
+  gate: state == at_bat
+  conditions:
+    - count in ["2-0","3-1"]
+    - (pitcher_bb_pct >= p70) or (csw_pct <= league_avg)
+  dedup_window: 30s
+  priority: High
+
+impending_hook:
+  gate: half_inning_active == true
+  conditions:
+    - tto >= 3
+    - pitch_count >= 90
+    - bullpen_hot == true
+  dedup_window: 120s
+  priority: High
+
+reliever_first_batter_risk:
+  gate: pitching_change == true
+  conditions:
+    - (reliever_reverse_splits == true) or (reliever_back_to_back_days == true)
+  dedup_window: 120s
+  priority: Medium-High
+
+gust_spike:
+  gate: between_innings or batter_on_deck == true
+  conditions:
+    - delta_wind_out_mph_3min >= 5
+    - park_hr_factor >= 1.05
+    - next_due_power_tier in [A,B]
+  dedup_window: 5m
+  priority: High
+UI & Settings (checkbox keys)
+Add these under AI Alerts:
+
+☐ On‑Deck Power Spike — on_deck_power_spike (on)
+
+☐ Impending Platoon Smash — impending_platoon (on)
+
+☐ Non‑Competitive Pitch Cluster — noncomp_cluster (on)
+
+☐ Behind‑In‑Count Danger — behind_count_power (on)
+
+☐ Impending Hook — impending_hook (on)
+
+☐ Reliever First‑Batter Risk — reliever_first_batter_risk (on)
+
+☐ Gust Spike — gust_spike (on)
+
+☐ Tempo Stress — tempo_stress (off)
+
+☐ Pinch‑Hitter Power Watch — pinch_hit_power_watch (off)
+
+☐ Impending Steal — impending_steal (off)
+
+☐ Bunt Expectation — bunt_expectation (off)
+
+☐ Ball Streak (Pre) — ball_streak_pre (off)
+
+☐ Steam Early Warning — steam_early_warning (off)
+
+Engineering Notes (to actually win earlier)
+Advance the gate: Fire candidate generation at on‑deck and after each pitch, not just at entry to the box.
+
+Adaptive polling: Bump your check frequency to every 1s during: RISP, on‑deck A/B power, or pitcher softening; keep 3s otherwise.
+
+Latency budget: Target ≤500 ms from event → alert; build alerts off your own event loop (don’t wait for UI render).
+
+Pre‑compute PowerScore each half‑inning; only recompute weather/park every 60s unless gust delta triggers.
+
+Calibration (quick + ruthless)
+Log lead time (alert_ts vs play_ts) and line movement (odds_before → odds_after_15s).
+
+Promote alerts where median lead time ≥10s and price improves ≥5–10 bps.
+
+Down‑weight anything with lead time <3s or poor EV.
+
+Weekly: cut the bottom quartile; raise thresholds 5–10% if noise creeps.

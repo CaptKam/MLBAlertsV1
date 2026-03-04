@@ -1,0 +1,135 @@
+Replit Stability Playbook (for your alert app)
+Pin your environment
+
+Add a replit.nix with exact versions (Python, node, etc.) so the box is reproducible.
+
+Use a lockfile (uv or poetry.lock). Don’t rely on pip install -r without versions.
+
+Separate “dev” from “prod”
+
+Do local/dev runs in the workspace.
+
+Use Replit Deployments for production (containerized, no random resets, predictable restarts).
+
+Keep config flags: APP_ENV=dev|prod to toggle debug/log levels.
+
+Split processes
+
+One web process (healthcheck + admin) and one worker process (game polling/alert logic).
+
+Use a Procfile-ish setup or two entry points; don’t run your long‑running loop inside the web server thread.
+
+Healthchecks + watchdog
+
+Expose /healthz on the web process.
+
+In the worker, wrap the alert loop with a watchdog that auto‑restarts on uncaught exceptions and uses progressive backoff (e.g., 1s→2s→5s… max 60s).
+
+Structured logging (so you can actually debug)
+
+Log input feed events, decision outputs, and why an alert did/didn’t fire.
+
+Include request IDs / game IDs in every line.
+
+Use log rotation; don’t write giant files to the ephemeral FS.
+
+Secrets & config
+
+Put all keys in Replit Secrets. Never hardcode.
+
+Validate at startup and fail fast with a clear error if a key is missing.
+
+Resource limits & leaks
+
+Avoid spawning new event loops/threads on every request. Create one loop/Session and reuse it.
+
+Close HTTP sessions; use connection pooling.
+
+If you use asyncio, ensure no orphaned tasks (track them; cancel on shutdown).
+
+Deterministic alert logic tests
+
+Build a tiny “sim replay” harness: feed recorded game states to your logic and assert alerts. Run it before every deploy.
+
+Add regression tests for each bug you fix so it never returns.
+
+Crash visibility
+
+Print full tracebacks and the last ingested payload on crash (redact secrets).
+
+Optionally add a simple Slack/Telegram ping on “process restarted due to crash”.
+
+Deployments > “Always On”
+
+Use Deployments with a healthcheck. It restarts cleanly and won’t kill your process mid‑request like the dev runner sometimes does.
+
+Minimal files you likely need
+replit.nix (pin versions)
+
+nix
+Copy
+Edit
+{ pkgs }: {
+  deps = [
+    pkgs.python311
+    pkgs.python311Packages.uv
+    pkgs.pkg-config
+    pkgs.openssl
+  ];
+}
+pyproject.toml (lock your deps)
+
+toml
+Copy
+Edit
+[project]
+name = "chirpbot-alerts"
+version = "0.1.0"
+requires-python = ">=3.11"
+
+dependencies = [
+  "fastapi==0.115.0",
+  "uvicorn==0.30.3",
+  "httpx==0.27.0",
+  "pydantic==2.8.2",
+  "tenacity==8.5.0",
+  "python-dotenv==1.0.1"
+]
+main.py (web + healthcheck)
+
+python
+Copy
+Edit
+from fastapi import FastAPI
+app = FastAPI()
+
+@app.get("/healthz")
+def healthz():
+    return {"ok": True}
+worker.py (watchdog skeleton)
+
+python
+Copy
+Edit
+import asyncio, time, httpx
+from tenacity import retry, wait_exponential, stop_after_attempt
+
+async def run_loop():
+    async with httpx.AsyncClient(timeout=10) as client:
+        while True:
+            # fetch feed -> decide -> send alerts
+            await asyncio.sleep(0.5)
+
+@retry(wait=wait_exponential(min=1, max=60), stop=stop_after_attempt(999999))
+def main():
+    asyncio.run(run_loop())
+
+if __name__ == "__main__":
+    main()
+Proc-style (Replit “Run” command)
+
+Start web: uvicorn main:app --host 0.0.0.0 --port 8000
+
+Start worker: python worker.py
+(Use two tabs in the dev runner; in Deployments, make two services or one multi-process script.)
+

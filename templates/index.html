@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chirpbot - MLB Live Game Monitor</title>
+    <link href="https://cdn.replit.com/agent/bootstrap-agent-dark-theme.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+</head>
+<body>
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-12">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <div class="d-flex align-items-center">
+                        <img src="{{ url_for('static', filename='img/chirpbot-logo.png') }}" alt="Chirpbot Logo" style="height: 100px; width: auto;">
+                    </div>
+                    <!-- Admin Controls -->
+                    <div class="admin-controls">
+                        {% if current_user.is_authenticated %}
+                            <span class="text-muted me-3">
+                                <i class="fas fa-user-circle me-1"></i>
+                                {{ current_user.username }}
+                                {% if is_admin %}
+                                    <span class="badge bg-primary ms-1">Admin</span>
+                                {% endif %}
+                            </span>
+                            <a href="{{ url_for('change_password') }}" class="btn btn-outline-warning me-2" title="Change Password">
+                                <i class="fas fa-key me-1"></i>Change Password
+                            </a>
+                            {% if is_admin %}
+                                <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-info me-2">
+                                    <i class="fas fa-tachometer-alt me-1"></i>Dashboard
+                                </a>
+                            {% endif %}
+                            <a href="{{ url_for('logout') }}" class="btn btn-outline-danger">
+                                <i class="fas fa-sign-out-alt me-1"></i>Logout
+                            </a>
+                        {% else %}
+                            <a href="{{ url_for('login') }}" class="btn btn-primary">
+                                <i class="fas fa-sign-in-alt me-1"></i>Admin Login
+                            </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <!-- Game Selection Panel -->
+            <div class="col-lg-6 mb-4">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-calendar-day me-2"></i>
+                            Today's Games
+                        </h5>
+                        <button class="btn btn-sm btn-outline-primary" id="refreshGames">
+                            <i class="fas fa-sync-alt"></i>
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div id="gamesLoading" class="text-center py-4">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading games...</span>
+                            </div>
+                            <p class="mt-2 text-muted">Loading today's games...</p>
+                        </div>
+                        <div id="gamesError" class="alert alert-danger d-none" role="alert">
+                            <i class="fas fa-exclamation-triangle me-2"></i>
+                            <span id="gamesErrorMessage"></span>
+                        </div>
+                        <div id="gamesContainer" class="d-none">
+                            <div id="gamesList"></div>
+                            
+                            <!-- Notification Types Selection -->
+                            <div class="mt-4">
+                                <h6 class="mb-3">
+                                    <i class="fas fa-filter me-2"></i>
+                                    Choose What to Monitor
+                                </h6>
+                                <div class="row" id="notificationTypes">
+                                    <div class="col-md-6 mb-2">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="alertRunners" checked>
+                                            <label class="form-check-label" for="alertRunners">
+                                                <i class="fas fa-running text-warning me-2"></i>
+                                                Runners on Base
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="alertHits" checked>
+                                            <label class="form-check-label" for="alertHits">
+                                                <i class="fas fa-baseball-ball text-success me-2"></i>
+                                                Hits (Singles, Doubles, Triples, HRs)
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="alertScoring" checked>
+                                            <label class="form-check-label" for="alertScoring">
+                                                <i class="fas fa-trophy text-danger me-2"></i>
+                                                Scoring Plays
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="alertInningChange">
+                                            <label class="form-check-label" for="alertInningChange">
+                                                <i class="fas fa-exchange-alt text-info me-2"></i>
+                                                Inning Changes
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="alertHomeRuns">
+                                            <label class="form-check-label" for="alertHomeRuns">
+                                                <i class="fas fa-rocket text-primary me-2"></i>
+                                                Home Runs Only
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="alertStrikeouts">
+                                            <label class="form-check-label" for="alertStrikeouts">
+                                                <i class="fas fa-times text-secondary me-2"></i>
+                                                Strikeouts
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="alert7thInning" checked>
+                                            <label class="form-check-label" for="alert7thInning">
+                                                <i class="fas fa-exclamation-triangle text-warning me-2"></i>
+                                                7th Inning Game Warning
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="alertGameStart" checked>
+                                            <label class="form-check-label" for="alertGameStart">
+                                                <i class="fas fa-play-circle text-success me-2"></i>
+                                                Game Start Alert
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="alertTieNinth" checked>
+                                            <label class="form-check-label" for="alertTieNinth">
+                                                <i class="fas fa-fire text-danger me-2"></i>
+                                                Tie Game Going Into 9th
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- High-Probability Scoring Situations -->
+                                <h6 class="mb-3 mt-4">
+                                    <i class="fas fa-bullseye text-danger me-2"></i>
+                                    High-Probability Scoring Situations
+                                </h6>
+                                <div class="row">
+                                    <div class="col-md-6 mb-2">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="alertRunners23NoOuts" checked>
+                                            <label class="form-check-label" for="alertRunners23NoOuts">
+                                                <i class="fas fa-fire text-danger me-2"></i>
+                                                Runners on 2nd & 3rd, 0 Outs
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="alertBasesLoadedNoOuts" checked>
+                                            <label class="form-check-label" for="alertBasesLoadedNoOuts">
+                                                <i class="fas fa-fire text-danger me-2"></i>
+                                                Bases Loaded, 0 Outs
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="alertRunner3rdNoOuts" checked>
+                                            <label class="form-check-label" for="alertRunner3rdNoOuts">
+                                                <i class="fas fa-exclamation-triangle text-warning me-2"></i>
+                                                Runner on 3rd, 0 Outs
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="alertRunners13NoOuts">
+                                            <label class="form-check-label" for="alertRunners13NoOuts">
+                                                <i class="fas fa-bolt text-warning me-2"></i>
+                                                Runners on 1st & 3rd, 0 Outs
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="alertRunners23OneOut">
+                                            <label class="form-check-label" for="alertRunners23OneOut">
+                                                <i class="fas fa-clock text-info me-2"></i>
+                                                Runners on 2nd & 3rd, 1 Out
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="alertBasesLoadedOneOut">
+                                            <label class="form-check-label" for="alertBasesLoadedOneOut">
+                                                <i class="fas fa-clock text-info me-2"></i>
+                                                Bases Loaded, 1 Out
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="alertRunners12NoOuts" checked>
+                                            <label class="form-check-label" for="alertRunners12NoOuts">
+                                                <i class="fas fa-users text-warning me-2"></i>
+                                                Runners on 1st & 2nd, 0 Outs (60%)
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="alertRunner2ndNoOuts" checked>
+                                            <label class="form-check-label" for="alertRunner2ndNoOuts">
+                                                <i class="fas fa-user text-warning me-2"></i>
+                                                Runner on 2nd, 0 Outs (60%)
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="alertRunner3rdOneOut" checked>
+                                            <label class="form-check-label" for="alertRunner3rdOneOut">
+                                                <i class="fas fa-flag text-info me-2"></i>
+                                                Runner on 3rd, 1 Out (55%)
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="alertRunners13OneOut" checked>
+                                            <label class="form-check-label" for="alertRunners13OneOut">
+                                                <i class="fas fa-arrows-alt text-info me-2"></i>
+                                                Runners on 1st & 3rd, 1 Out (55%)
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Weather-Based Alerts -->
+                                <h6 class="mb-3 mt-4">
+                                    <i class="fas fa-cloud-sun text-info me-2"></i>
+                                    Weather-Based Alerts
+                                </h6>
+                                <div class="row">
+                                    <div class="col-md-6 mb-2">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="alertWindSpeed" checked>
+                                            <label class="form-check-label" for="alertWindSpeed">
+                                                <i class="fas fa-wind text-info me-2"></i>
+                                                Wind ≥ 7.5 mph Toward Outfield
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="alertWindShift" checked>
+                                            <label class="form-check-label" for="alertWindShift">
+                                                <i class="fas fa-location-arrow text-info me-2"></i>
+                                                Wind Direction Shift ≥ 45°
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="alertPrimeHRConditions" checked>
+                                            <label class="form-check-label" for="alertPrimeHRConditions">
+                                                <i class="fas fa-star text-warning me-2"></i>
+                                                High HRFI + Wind Out
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="alertHotWindy" checked>
+                                            <label class="form-check-label" for="alertHotWindy">
+                                                <i class="fas fa-fire text-danger me-2"></i>
+                                                Hot & Windy Conditions
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="alertWeatherDelay" checked>
+                                            <label class="form-check-label" for="alertWeatherDelay">
+                                                <i class="fas fa-cloud-rain text-secondary me-2"></i>
+                                                Weather Delays
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="alertGameResumption" checked>
+                                            <label class="form-check-label" for="alertGameResumption">
+                                                <i class="fas fa-play text-success me-2"></i>
+                                                Game Resumption After Delay
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="alertTempWind" checked>
+                                            <label class="form-check-label" for="alertTempWind">
+                                                <i class="fas fa-temperature-high text-danger me-2"></i>
+                                                Temp ≥ 85°F + Wind Out
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Power Hitter Alerts -->
+                                <h6 class="mb-3 mt-4">
+                                    <i class="fas fa-hammer text-warning me-2"></i>
+                                    Power Hitter Alerts
+                                </h6>
+                                <div class="row">
+                                    <div class="col-md-6 mb-2">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="alertPowerHitter" checked>
+                                            <label class="form-check-label" for="alertPowerHitter">
+                                                <i class="fas fa-trophy text-warning me-2"></i>
+                                                Batter with 20+ HRs This Season
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="alertHotHitter" checked>
+                                            <label class="form-check-label" for="alertHotHitter">
+                                                <i class="fas fa-fire text-danger me-2"></i>
+                                                Batter with HR in Current Game
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="alertClutchHR" checked>
+                                            <label class="form-check-label" for="alertClutchHR">
+                                                <i class="fas fa-exclamation-circle text-danger me-2"></i>
+                                                Power Hitter + RISP in 7th+ Inning
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Advanced ROI Alerts (NEW) -->
+                            <div class="mt-3">
+                                <h6 class="text-muted mb-2">
+                                    <i class="fas fa-chart-line text-success me-2"></i>
+                                    Advanced ROI Alerts
+                                </h6>
+                                <div class="row">
+                                    <div class="col-md-6 mb-2">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="aiPowerPlusScoring" checked>
+                                            <label class="form-check-label" for="aiPowerPlusScoring">
+                                                <i class="fas fa-bullseye text-success me-2"></i>
+                                                AI: Power Hitter + Scoring Opportunity
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="aiPowerHighConfidence" checked>
+                                            <label class="form-check-label" for="aiPowerHighConfidence">
+                                                <i class="fas fa-medal text-warning me-2"></i>
+                                                AI: Power Hitter — High-Confidence
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="pitcherSoftening" checked>
+                                            <label class="form-check-label" for="pitcherSoftening">
+                                                <i class="fas fa-battery-quarter text-orange me-2"></i>
+                                                Pitcher Softening (Fatigue/Contact)
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- AI Insights Settings -->
+                            <div class="mt-3">
+                                <h6 class="text-muted mb-2">
+                                    <i class="fas fa-robot text-info me-2"></i>
+                                    AI Features
+                                </h6>
+                                <div class="row">
+                                    <div class="col-md-6 mb-2">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="aiAnalyzeHits" checked>
+                                            <label class="form-check-label" for="aiAnalyzeHits">
+                                                <i class="fas fa-baseball-ball text-info me-2"></i>
+                                                Analyze Hits, Home Runs & Strikeouts
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="aiAnalyzeRunners" checked>
+                                            <label class="form-check-label" for="aiAnalyzeRunners">
+                                                <i class="fas fa-running text-info me-2"></i>
+                                                Insights for Runners on Base
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="aiAnalyzePowerHitter" checked>
+                                            <label class="form-check-label" for="aiAnalyzePowerHitter">
+                                                <i class="fas fa-hammer text-info me-2"></i>
+                                                Analyze Power Hitter At-Bats
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="aiPredictScoring" checked>
+                                            <label class="form-check-label" for="aiPredictScoring">
+                                                <i class="fas fa-chart-line text-info me-2"></i>
+                                                Predict Scoring Probability
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="aiSummarizeEvents" checked>
+                                            <label class="form-check-label" for="aiSummarizeEvents">
+                                                <i class="fas fa-list text-info me-2"></i>
+                                                Summarize Recent Game Events
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="aiEnhanceAlerts" checked>
+                                            <label class="form-check-label" for="aiEnhanceAlerts">
+                                                <i class="fas fa-sparkles text-info me-2"></i>
+                                                Enhance Other Alert Types
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- ROI+ Early-Notice Alerts (NEW ADVANCED) -->
+
+                            
+                            <div class="mt-3">
+                                <button class="btn btn-primary" id="updateMonitoring">
+                                    <i class="fas fa-play me-2"></i>
+                                    Start Monitoring Selected Games
+                                </button>
+                                <button class="btn btn-danger ms-2 d-none" id="stopMonitoring">
+                                    <i class="fas fa-stop me-2"></i>
+                                    Stop Monitoring
+                                </button>
+                            </div>
+                        </div>
+                        <div id="noGames" class="text-center py-4 d-none">
+                            <i class="fas fa-calendar-times text-muted fs-1"></i>
+                            <p class="text-muted mt-2">No games scheduled for today</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Status Panel -->
+                <div class="card mt-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-info-circle me-2"></i>
+                            Monitoring Status
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="statusInfo">
+                            <div class="d-flex align-items-center mb-2">
+                                <span class="badge bg-secondary me-2" id="statusBadge">Stopped</span>
+                                <span class="text-muted" id="statusText">Not monitoring any games</span>
+                            </div>
+                            <small class="text-muted" id="lastUpdate">Last update: Never</small>
+                        </div>
+                        
+                        <!-- Telegram Test Section -->
+                        <div class="mt-3 pt-3 border-top">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <small class="text-muted">
+                                    <i class="fab fa-telegram me-1"></i>
+                                    Telegram Notifications
+                                </small>
+                                <button class="btn btn-sm btn-outline-primary" id="testTelegram">
+                                    <i class="fas fa-paper-plane me-1"></i>
+                                    Test
+                                </button>
+                            </div>
+                            <div id="telegramStatus" class="small text-muted">Ready to send alerts</div>
+                        </div>
+                        
+                        <!-- Persistent Settings Section -->
+                        <div class="mt-3 pt-3 border-top">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <small class="text-muted">
+                                    <i class="fas fa-cog me-1"></i>
+                                    Persistent Settings
+                                </small>
+                                <button class="btn btn-sm btn-outline-info" id="toggleAutoMonitoring">
+                                    <i class="fas fa-toggle-on me-1"></i>
+                                    Toggle Auto-Restore
+                                </button>
+                            </div>
+                            <div id="persistentSettingsStatus" class="small">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <span>Loading settings...</span>
+                                    <div class="spinner-border spinner-border-sm" role="status"></div>
+                                </div>
+                            </div>
+                            <small class="text-muted d-block mt-1">
+                                When enabled, monitoring will automatically resume when the app restarts
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Alert Success Rate Panel -->
+            <div class="col-lg-6">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-chart-line me-2"></i>
+                            Alert Success Rate
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="successRateStats">
+                            <div class="row text-center mb-3">
+                                <div class="col-4">
+                                    <div class="success-stat">
+                                        <div class="stat-number text-primary fs-4 fw-bold" id="overallSuccessRate">-%</div>
+                                        <div class="stat-label text-muted small">Overall Rate</div>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="success-stat">
+                                        <div class="stat-number text-success fs-4 fw-bold" id="recentSuccessRate">-%</div>
+                                        <div class="stat-label text-muted small">Last 30 Days</div>
+                                    </div>
+                                </div>
+                                <div class="col-4">
+                                    <div class="success-stat">
+                                        <div class="stat-number text-info fs-4 fw-bold" id="totalTrackedAlerts">0</div>
+                                        <div class="stat-label text-muted small">Total Tracked</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="border-top pt-3">
+                                <h6 class="text-muted mb-2 small">Performance by Alert Type</h6>
+                                <div id="alertTypeBreakdown" style="max-height: 120px; overflow-y: auto;">
+                                    <div class="text-muted text-center py-2">
+                                        <i class="fas fa-chart-bar me-2"></i>
+                                        Start monitoring to track your alert performance
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            
+                <!-- Alert Log Panel -->
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-bell me-2"></i>
+                            Live Alerts
+                            <span class="badge bg-primary ms-2" id="alertCount">0</span>
+                        </h5>
+                        <div>
+                            <div class="btn-group">
+                                <button class="btn btn-sm btn-outline-primary" id="toggleSound" title="Toggle sound alerts">
+                                    <i class="fas fa-volume-up" id="soundIcon"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-secondary" id="clearAlerts">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body p-0">
+                        <!-- Alert Filter/Search -->
+                        <div class="p-3 border-bottom">
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text">
+                                    <i class="fas fa-search"></i>
+                                </span>
+                                <input type="text" class="form-control" id="alertSearch" placeholder="Search alerts...">
+                                <select class="form-select" id="alertTypeFilter" style="max-width: 150px;">
+                                    <option value="">All Types</option>
+                                    <option value="runners">Runners</option>
+                                    <option value="hit">Hits</option>
+                                    <option value="score">Scoring</option>
+                                    <option value="high_probability">High Probability</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div id="alertsContainer" class="alert-log">
+                            <div id="noAlerts" class="text-center py-5">
+                                <i class="fas fa-bell-slash text-muted fs-1"></i>
+                                <p class="text-muted mt-2">No alerts yet</p>
+                                <small class="text-muted">Select games to monitor for real-time alerts</small>
+                            </div>
+                            <div id="alertsList"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
