@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 
 // ═══════════════════════════════════════════════════════════════
-// CHIRP.BET — CHIRPS SCREEN (Modern Redesign)
-// Clean hierarchy, subtle depth, purposeful animation
+// CHIRP.BET — CHIRPS SCREEN (Web App Redesign)
+// Responsive desktop-first layout with sidebar, grid cards, modals
 // ═══════════════════════════════════════════════════════════════
 
 // --- Data ---
@@ -10,26 +10,46 @@ const ESPN_LOGO = (id) =>
   `https://a.espncdn.com/combiner/i?img=/i/teamlogos/mlb/500/${id}.png&h=80&w=80`;
 
 const TEAMS = {
-  NYY: { abbr: "NYY", name: "Yankees", color: "#003087", espn: "nyy" },
-  BOS: { abbr: "BOS", name: "Red Sox", color: "#BD3039", espn: "bos" },
-  LAD: { abbr: "LAD", name: "Dodgers", color: "#005A9C", espn: "lad" },
-  SF:  { abbr: "SF",  name: "Giants",  color: "#FD5A1E", espn: "sf" },
-  HOU: { abbr: "HOU", name: "Astros",  color: "#002D62", espn: "hou" },
-  TEX: { abbr: "TEX", name: "Rangers", color: "#003278", espn: "tex" },
-  CHC: { abbr: "CHC", name: "Cubs",    color: "#0E3386", espn: "chc" },
-  STL: { abbr: "STL", name: "Cardinals",color: "#C41E3A", espn: "stl" },
-  ATL: { abbr: "ATL", name: "Braves",  color: "#CE1141", espn: "atl" },
-  PHI: { abbr: "PHI", name: "Phillies", color: "#E81828", espn: "phi" },
+  NYY: { abbr: "NYY", name: "Yankees",   color: "#003087", espn: "nyy" },
+  BOS: { abbr: "BOS", name: "Red Sox",   color: "#BD3039", espn: "bos" },
+  LAD: { abbr: "LAD", name: "Dodgers",   color: "#005A9C", espn: "lad" },
+  SF:  { abbr: "SF",  name: "Giants",    color: "#FD5A1E", espn: "sf"  },
+  HOU: { abbr: "HOU", name: "Astros",    color: "#002D62", espn: "hou" },
+  TEX: { abbr: "TEX", name: "Rangers",   color: "#003278", espn: "tex" },
+  CHC: { abbr: "CHC", name: "Cubs",      color: "#0E3386", espn: "chc" },
+  STL: { abbr: "STL", name: "Cardinals", color: "#C41E3A", espn: "stl" },
+  ATL: { abbr: "ATL", name: "Braves",    color: "#CE1141", espn: "atl" },
+  PHI: { abbr: "PHI", name: "Phillies",  color: "#E81828", espn: "phi" },
+  NYM: { abbr: "NYM", name: "Mets",      color: "#002D72", espn: "nym" },
+  MIL: { abbr: "MIL", name: "Brewers",   color: "#12284B", espn: "mil" },
+  SD:  { abbr: "SD",  name: "Padres",    color: "#2F241D", espn: "sd"  },
+  SEA: { abbr: "SEA", name: "Mariners",  color: "#0C2C56", espn: "sea" },
+  TB:  { abbr: "TB",  name: "Rays",      color: "#092C5C", espn: "tb"  },
+  MIN: { abbr: "MIN", name: "Twins",     color: "#002B5C", espn: "min" },
+  CLE: { abbr: "CLE", name: "Guardians", color: "#00385D", espn: "cle" },
+  DET: { abbr: "DET", name: "Tigers",    color: "#0C2340", espn: "det" },
+  KC:  { abbr: "KC",  name: "Royals",    color: "#004687", espn: "kc"  },
+  BAL: { abbr: "BAL", name: "Orioles",   color: "#DF4601", espn: "bal" },
+  CWS: { abbr: "CWS", name: "White Sox", color: "#27251F", espn: "chw" },
+  TOR: { abbr: "TOR", name: "Blue Jays", color: "#134A8E", espn: "tor" },
+  LAA: { abbr: "LAA", name: "Angels",    color: "#BA0021", espn: "laa" },
+  OAK: { abbr: "OAK", name: "Athletics", color: "#003831", espn: "oak" },
+  PIT: { abbr: "PIT", name: "Pirates",   color: "#27251F", espn: "pit" },
+  CIN: { abbr: "CIN", name: "Reds",      color: "#C6011F", espn: "cin" },
+  COL: { abbr: "COL", name: "Rockies",   color: "#33006F", espn: "col" },
+  ARI: { abbr: "ARI", name: "D-backs",   color: "#A71930", espn: "ari" },
+  WSH: { abbr: "WSH", name: "Nationals", color: "#AB0003", espn: "wsh" },
+  MIA: { abbr: "MIA", name: "Marlins",   color: "#00A3E0", espn: "mia" },
 };
 
 // --- Design Tokens ---
-// Inspired by Linear/Vercel — dark, muted, precise
 const t = {
   // Surfaces
   bg:       "#06080C",
   surface:  "#0C1017",
   card:     "#10141C",
   elevated: "#161C28",
+  hover:    "#1A2030",
   // Borders
   border:       "rgba(255,255,255,0.06)",
   borderSubtle: "rgba(255,255,255,0.04)",
@@ -46,17 +66,22 @@ const t = {
   blue:   "#3B82F6",
   green:  "#22C55E",
   cyan:   "#06B6D4",
-  // Accent backgrounds (very subtle)
+  purple: "#8B5CF6",
+  // Accent backgrounds
   redBg:    "rgba(239,68,68,0.06)",
   amberBg:  "rgba(245,158,11,0.06)",
   blueBg:   "rgba(59,130,246,0.06)",
   greenBg:  "rgba(34,197,94,0.05)",
+  cyanBg:   "rgba(6,182,212,0.05)",
+  purpleBg: "rgba(139,92,246,0.05)",
   // Radius
   r:  14,
   rs: 10,
+  rl: 18,
   // Shadows
   cardShadow: "0 1px 3px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.03)",
   elevShadow: "0 4px 16px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.04)",
+  modalShadow: "0 24px 80px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.06)",
 };
 
 const fontDisplay = {
@@ -73,7 +98,7 @@ const ordinal = (n) => {
 };
 
 // --- CSS Injection ---
-const CSS_ID = "chirps-v2-css";
+const CSS_ID = "chirps-web-css";
 const injectCSS = () => {
   if (typeof document === "undefined" || document.getElementById(CSS_ID)) return;
   const el = document.createElement("style");
@@ -81,11 +106,13 @@ const injectCSS = () => {
   el.textContent = `
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
+    *, *::before, *::after { box-sizing: border-box; }
+
     @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(8px); }
+      from { opacity: 0; transform: translateY(6px); }
       to   { opacity: 1; transform: translateY(0); }
     }
-    .fade-in { animation: fadeIn 0.3s ease-out both; }
+    .fade-in { animation: fadeIn 0.25s ease-out both; }
 
     @keyframes pulse-dot {
       0%, 100% { opacity: 1; }
@@ -106,33 +133,172 @@ const injectCSS = () => {
       animation: shimmer 1.6s ease infinite;
     }
 
-    @keyframes slide-up {
-      from { transform: translateY(100%); }
-      to   { transform: translateY(0); }
+    @keyframes modalIn {
+      from { opacity: 0; transform: scale(0.96) translateY(8px); }
+      to   { opacity: 1; transform: scale(1) translateY(0); }
     }
-    .slide-up { animation: slide-up 0.35s cubic-bezier(0.16, 1, 0.3, 1); }
+    .modal-enter { animation: modalIn 0.2s cubic-bezier(0.16, 1, 0.3, 1); }
+
+    @keyframes backdropIn {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+    .backdrop-enter { animation: backdropIn 0.15s ease-out; }
 
     .hide-scroll::-webkit-scrollbar { display: none; }
     .hide-scroll { scrollbar-width: none; }
 
     .chirp-card {
-      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+      cursor: default;
     }
     .chirp-card:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 4px 20px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.06);
+      transform: translateY(-2px);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.08);
     }
 
     .tap-target {
       cursor: pointer;
-      transition: background 0.15s ease;
+      transition: background 0.15s ease, color 0.15s ease;
+      user-select: none;
+    }
+    .tap-target:hover {
+      background: rgba(255,255,255,0.04) !important;
     }
     .tap-target:active {
-      background: rgba(255,255,255,0.03) !important;
+      background: rgba(255,255,255,0.06) !important;
+    }
+
+    .nav-item {
+      transition: background 0.15s ease, color 0.15s ease;
+      cursor: pointer;
+      user-select: none;
+    }
+    .nav-item:hover {
+      background: rgba(255,255,255,0.04);
+    }
+    .nav-item.active {
+      background: rgba(255,255,255,0.06);
+    }
+
+    .scoreboard-chip {
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      cursor: pointer;
+    }
+    .scoreboard-chip:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+    }
+
+    .filter-btn {
+      transition: all 0.15s ease;
+      cursor: pointer;
+      user-select: none;
+    }
+    .filter-btn:hover {
+      background: rgba(255,255,255,0.06) !important;
+    }
+
+    /* Responsive grid */
+    .chirps-grid {
+      display: grid;
+      gap: 16px;
+      grid-template-columns: 1fr;
+    }
+    @media (min-width: 900px) {
+      .chirps-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+    }
+    @media (min-width: 1400px) {
+      .chirps-grid {
+        grid-template-columns: repeat(3, 1fr);
+      }
+    }
+
+    /* Scrollbar for sidebar */
+    .custom-scroll::-webkit-scrollbar { width: 4px; }
+    .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+    .custom-scroll::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,0.08);
+      border-radius: 2px;
+    }
+    .custom-scroll::-webkit-scrollbar-thumb:hover {
+      background: rgba(255,255,255,0.15);
     }
   `;
   document.head.appendChild(el);
 };
+
+
+// ═══════════════════════════════════════
+// ICONS (SVG)
+// ═══════════════════════════════════════
+
+function IconGames({ size = 18, color = "currentColor" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <path d="M12 2C6.5 2 2 6.5 2 12" strokeDasharray="4 2" />
+      <path d="M8 2.5C6 6 6 18 8 21.5" />
+      <path d="M16 2.5C18 6 18 18 16 21.5" />
+    </svg>
+  );
+}
+
+function IconChirps({ size = 18, color = "currentColor" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+    </svg>
+  );
+}
+
+function IconHistory({ size = 18, color = "currentColor" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 3v5h5" />
+      <path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" />
+      <path d="M12 7v5l4 2" />
+    </svg>
+  );
+}
+
+function IconSettings({ size = 18, color = "currentColor" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z" />
+    </svg>
+  );
+}
+
+function IconClose({ size = 16, color = "currentColor" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 16 16" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round">
+      <path d="M3 3L13 13M13 3L3 13" />
+    </svg>
+  );
+}
+
+function IconChevron({ size = 12, color = "currentColor", direction = "down" }) {
+  const rotate = { down: 0, up: 180, left: 90, right: -90 }[direction];
+  return (
+    <svg width={size} height={size} viewBox="0 0 12 12"
+      style={{ transition: "transform 0.2s", transform: `rotate(${rotate}deg)` }}>
+      <path d="M2 4.5L6 8.5L10 4.5" stroke={color} strokeWidth="1.5" fill="none" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function IconFilter({ size = 14, color = "currentColor" }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" />
+    </svg>
+  );
+}
+
 
 // ═══════════════════════════════════════
 // PRIMITIVES
@@ -166,26 +332,23 @@ function TeamLogo({ team, size = 28 }) {
 
 function Diamond({ bases = [false, false, false], size = 40 }) {
   const m = size / 2;
-  const d = size * 0.12;
+  const d = size * 0.13;
   const pos = [
-    { x: size * 0.85, y: m },       // 1st
-    { x: m, y: size * 0.15 },       // 2nd
-    { x: size * 0.15, y: m },       // 3rd
+    { x: size * 0.85, y: m },
+    { x: m, y: size * 0.15 },
+    { x: size * 0.15, y: m },
   ];
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-      {/* Paths */}
       <polygon
         points={`${m},${size * 0.15} ${size * 0.85},${m} ${m},${size * 0.85} ${size * 0.15},${m}`}
         fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="0.8"
       />
-      {/* Home */}
       <rect
         x={m - d / 2} y={size * 0.85 - d / 2} width={d} height={d}
         fill={t.elevated} stroke="rgba(255,255,255,0.12)" strokeWidth="0.6"
         transform={`rotate(45 ${m} ${size * 0.85})`}
       />
-      {/* Bases */}
       {pos.map((p, i) => (
         <rect key={i}
           x={p.x - d / 2} y={p.y - d / 2} width={d} height={d}
@@ -213,16 +376,19 @@ function OutDots({ count = 0 }) {
   );
 }
 
-function Badge({ label, color = "green", pulse = false }) {
-  const colors = { red: t.red, green: t.green, blue: t.blue, amber: t.amber, cyan: t.cyan };
+function Badge({ label, color = "green", pulse = false, size = "sm" }) {
+  const colors = { red: t.red, green: t.green, blue: t.blue, amber: t.amber, cyan: t.cyan, purple: t.purple };
   const c = colors[color] || color;
+  const px = size === "lg" ? "10px 14px" : "3px 8px";
+  const fs = size === "lg" ? 11 : 10;
   return (
     <span className={pulse ? "pulse-dot" : ""} style={{
       display: "inline-flex", alignItems: "center",
-      padding: "3px 8px", borderRadius: 6,
+      padding: px, borderRadius: 6,
       background: `${c}10`, border: `1px solid ${c}18`,
-      fontSize: 10, fontWeight: 600, color: c,
+      fontSize: fs, fontWeight: 600, color: c,
       letterSpacing: "0.02em", ...fontDisplay,
+      whiteSpace: "nowrap",
     }}>
       {label}
     </span>
@@ -238,237 +404,256 @@ function Skeleton({ w = "100%", h = 12, r = 6 }) {
   );
 }
 
-// ═══════════════════════════════════════
-// CARD COMPONENTS
-// ═══════════════════════════════════════
-
-function ChirpCard({ alert, level, expanded, onToggle, onTapLine }) {
-  const levelConfig = {
-    strong: { color: t.red, label: "STRONG CHIRP", accentBg: t.redBg },
-    chirp:  { color: t.amber, label: "CHIRP", accentBg: t.amberBg },
-    soft:   { color: t.blue, label: "SOFT CHIRP", accentBg: t.blueBg },
-  };
-  const cfg = levelConfig[level];
-  const a = alert;
-  const isLive = a.inn > 0;
-  const isExpanded = expanded;
-
+function StatBox({ label, value, color = t.white, sub }) {
   return (
-    <div className="chirp-card fade-in" style={{
+    <div style={{
+      padding: "14px 16px",
       background: t.card,
       border: `1px solid ${t.border}`,
-      borderRadius: t.r,
-      borderLeft: `3px solid ${cfg.color}`,
-      boxShadow: level === "strong"
-        ? `0 2px 16px rgba(0,0,0,0.35), 0 0 0 1px ${cfg.color}08`
-        : t.cardShadow,
-      marginBottom: 12,
-      overflow: "hidden",
+      borderRadius: t.rs,
     }}>
-      <div style={{ padding: "16px 16px 0" }}>
-
-        {/* Header: Level + Edge % */}
-        <div style={{
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-          marginBottom: 14,
-        }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <Badge label={cfg.label} color={level === "strong" ? "red" : level === "chirp" ? "amber" : "blue"} pulse={level === "strong"} />
-            <span style={{
-              ...fontMono, fontSize: level === "strong" ? 26 : 22,
-              fontWeight: 800, color: cfg.color, letterSpacing: "-0.03em",
-            }}>
-              +{a.edge}%
-            </span>
-          </div>
-          <span style={{ fontSize: 10, color: t.muted, ...fontDisplay }}>{a.time}</span>
-        </div>
-
-        {/* Scoreboard */}
-        <div style={{
-          padding: isLive ? "12px 14px" : "10px 14px",
-          background: "rgba(255,255,255,0.02)",
-          borderRadius: t.rs,
-          border: `1px solid ${t.borderSubtle}`,
-          marginBottom: 12,
-        }}>
-          <div style={{ display: "flex", alignItems: "center" }}>
-            {/* Away */}
-            <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8 }}>
-              <TeamLogo team={a.t1} size={isLive ? 28 : 24} />
-              <div>
-                <span style={{
-                  fontSize: 13, fontWeight: 700, color: t.white,
-                  ...fontDisplay, display: "block", lineHeight: 1,
-                }}>{TEAMS[a.t1]?.abbr}</span>
-                <span style={{
-                  fontSize: 9, color: t.muted, ...fontDisplay,
-                }}>{TEAMS[a.t1]?.name}</span>
-              </div>
-              {isLive && (
-                <span style={{
-                  ...fontMono, fontSize: 24, fontWeight: 800, color: t.white,
-                  marginLeft: "auto", letterSpacing: "-0.03em",
-                }}>{a.s1}</span>
-              )}
-            </div>
-
-            {/* Center: Diamond or Time */}
-            <div style={{
-              display: "flex", flexDirection: "column", alignItems: "center",
-              gap: 3, margin: "0 12px", flexShrink: 0,
-            }}>
-              {isLive ? (
-                <>
-                  <Diamond bases={a.bases} size={36} />
-                  <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
-                    <div className="pulse-dot" style={{
-                      width: 4, height: 4, borderRadius: "50%", background: t.green,
-                    }} />
-                    <span style={{
-                      fontSize: 9, fontWeight: 700, color: t.green, ...fontDisplay,
-                    }}>{a.top ? "\u25B2" : "\u25BC"}{ordinal(a.inn)}</span>
-                    <OutDots count={a.outs} />
-                  </div>
-                </>
-              ) : (
-                <span style={{
-                  fontSize: 11, fontWeight: 600, color: t.muted, ...fontDisplay,
-                }}>@ 7:10 PM</span>
-              )}
-            </div>
-
-            {/* Home */}
-            <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, flexDirection: "row-reverse" }}>
-              <TeamLogo team={a.t2} size={isLive ? 28 : 24} />
-              <div style={{ textAlign: "right" }}>
-                <span style={{
-                  fontSize: 13, fontWeight: 700, color: t.white,
-                  ...fontDisplay, display: "block", lineHeight: 1,
-                }}>{TEAMS[a.t2]?.abbr}</span>
-                <span style={{
-                  fontSize: 9, color: t.muted, ...fontDisplay,
-                }}>{TEAMS[a.t2]?.name}</span>
-              </div>
-              {isLive && (
-                <span style={{
-                  ...fontMono, fontSize: 24, fontWeight: 800, color: t.white,
-                  marginRight: "auto", letterSpacing: "-0.03em",
-                }}>{a.s2}</span>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Matchup Context (batter / pitcher) — only for strong/chirp with live data */}
-        {isLive && level !== "soft" && (
-          <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-            <div style={{
-              flex: 1, padding: "8px 10px", borderRadius: 8,
-              background: t.blueBg, border: `1px solid rgba(59,130,246,0.08)`,
-            }}>
-              <div style={{ fontSize: 9, fontWeight: 600, color: t.blue, letterSpacing: "0.04em", ...fontDisplay }}>AT BAT</div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: t.white, ...fontDisplay, marginTop: 2 }}>{a.bat.name}</div>
-              <div style={{ ...fontMono, fontSize: 10, color: t.secondary, marginTop: 1 }}>{a.bat.avg} / {a.bat.hr} HR</div>
-            </div>
-            <div style={{
-              flex: 1, padding: "8px 10px", borderRadius: 8,
-              background: t.redBg, border: `1px solid rgba(239,68,68,0.08)`,
-            }}>
-              <div style={{ fontSize: 9, fontWeight: 600, color: t.red, letterSpacing: "0.04em", ...fontDisplay }}>PITCHING</div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: t.white, ...fontDisplay, marginTop: 2 }}>{a.pit.name}</div>
-              <div style={{ ...fontMono, fontSize: 10, color: t.secondary, marginTop: 1 }}>{a.pit.era} ERA / {a.pit.pc} pc</div>
-            </div>
-          </div>
-        )}
-
-        {/* Condition Tags */}
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 10 }}>
-          {a.wind && <Badge label={`${a.wind.dir} ${a.wind.mph} mph`} color="green" />}
-          {a.temp && <Badge label={a.temp} color="amber" />}
-          {a.pf && <Badge label={`PF ${a.pf}`} color="cyan" />}
-          {a.pit?.velo && a.pit.velo !== "\u2014" && (
-            <Badge label={`Velo ${a.pit.velo} mph`} color="red" />
-          )}
-        </div>
-
-        {/* Expandable Factor Breakdown */}
-        {a.factors && a.factors.length > 0 && (
-          <>
-            <div
-              className="tap-target"
-              onClick={onToggle}
-              style={{
-                display: "flex", alignItems: "center", justifyContent: "space-between",
-                padding: "10px 0", borderTop: `1px solid ${t.border}`,
-              }}
-            >
-              <span style={{
-                fontSize: 10, fontWeight: 700, color: t.muted,
-                letterSpacing: "0.06em", ...fontDisplay,
-              }}>WHY THIS CHIRP</span>
-              <svg width="12" height="12" viewBox="0 0 12 12"
-                style={{ transition: "transform 0.2s", transform: isExpanded ? "rotate(180deg)" : "" }}>
-                <path d="M2 4.5L6 8.5L10 4.5" stroke={t.dim} strokeWidth="1.5" fill="none" strokeLinecap="round" />
-              </svg>
-            </div>
-
-            {isExpanded && (
-              <div className="fade-in" style={{ paddingBottom: 8 }}>
-                {a.factors.map((f, i) => (
-                  <div key={i} style={{ marginBottom: 12 }}>
-                    <div style={{
-                      display: "flex", alignItems: "center", justifyContent: "space-between",
-                      marginBottom: 4,
-                    }}>
-                      <span style={{ fontSize: 11, fontWeight: 600, color: t.primary, ...fontDisplay }}>{f.name}</span>
-                      <span style={{ ...fontMono, fontSize: 11, fontWeight: 700, color: f.color }}>{f.mult}</span>
-                    </div>
-                    <div style={{
-                      height: 3, background: "rgba(255,255,255,0.04)",
-                      borderRadius: 2, overflow: "hidden", marginBottom: 3,
-                    }}>
-                      <div style={{
-                        height: "100%", width: `${f.pct}%`, background: f.color,
-                        borderRadius: 2, transition: "width 0.5s ease-out",
-                      }} />
-                    </div>
-                    <span style={{ fontSize: 9, color: t.muted, ...fontDisplay, lineHeight: 1.3 }}>{f.detail}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </>
-        )}
+      <div style={{ fontSize: 10, fontWeight: 600, color: t.muted, letterSpacing: "0.04em", ...fontDisplay, marginBottom: 6 }}>
+        {label}
       </div>
-
-      {/* Bottom Action Bar — O/U Line */}
-      <div
-        className="tap-target"
-        onClick={onTapLine}
-        style={{
-          display: "flex", alignItems: "center", justifyContent: "space-between",
-          padding: "12px 16px",
-          background: t.greenBg,
-          borderTop: `1px solid rgba(34,197,94,0.06)`,
-        }}
-      >
-        <div>
-          <span style={{ fontSize: 10, color: t.secondary, ...fontDisplay }}>{a.venue}</span>
-          {level === "strong" && (
-            <div style={{ fontSize: 9, color: t.muted, ...fontDisplay, marginTop: 1 }}>
-              Tap for full breakdown
-            </div>
-          )}
-        </div>
-        <span style={{
-          ...fontMono, fontSize: level === "strong" ? 22 : 18,
-          fontWeight: 800, color: t.green, letterSpacing: "-0.03em",
-        }}>{a.line}</span>
+      <div style={{ ...fontMono, fontSize: 24, fontWeight: 800, color, letterSpacing: "-0.03em" }}>
+        {value}
       </div>
+      {sub && (
+        <div style={{ fontSize: 10, color: t.secondary, ...fontDisplay, marginTop: 4 }}>{sub}</div>
+      )}
     </div>
   );
 }
+
+
+// ═══════════════════════════════════════
+// SIDEBAR NAVIGATION
+// ═══════════════════════════════════════
+
+function Sidebar({ activeTab, onTabChange, alertCount }) {
+  const navItems = [
+    { id: "games",    label: "Games",    icon: IconGames },
+    { id: "chirps",   label: "Chirps",   icon: IconChirps, badge: alertCount },
+    { id: "history",  label: "History",  icon: IconHistory },
+    { id: "settings", label: "Settings", icon: IconSettings },
+  ];
+
+  return (
+    <aside style={{
+      width: 220,
+      height: "100vh",
+      position: "fixed",
+      left: 0,
+      top: 0,
+      background: t.surface,
+      borderRight: `1px solid ${t.border}`,
+      display: "flex",
+      flexDirection: "column",
+      zIndex: 40,
+    }}>
+      {/* Logo */}
+      <div style={{
+        padding: "20px 20px 16px",
+        borderBottom: `1px solid ${t.borderSubtle}`,
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{
+            width: 32, height: 32, borderRadius: 10,
+            background: "linear-gradient(135deg, #EF4444 0%, #F59E0B 100%)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            boxShadow: "0 2px 8px rgba(239,68,68,0.2)",
+          }}>
+            <span style={{ fontSize: 16 }}>&#x1F997;</span>
+          </div>
+          <div>
+            <span style={{
+              fontSize: 18, fontWeight: 800, color: t.white, letterSpacing: "-0.02em",
+              ...fontDisplay, display: "block", lineHeight: 1,
+            }}>chirp</span>
+            <span style={{
+              fontSize: 9, fontWeight: 600, color: t.dim, ...fontDisplay,
+              letterSpacing: "0.06em",
+            }}>BETA</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Nav Items */}
+      <nav style={{ flex: 1, padding: "12px 10px", overflow: "hidden" }}>
+        {navItems.map((item) => {
+          const active = activeTab === item.id;
+          const Icon = item.icon;
+          return (
+            <div
+              key={item.id}
+              className="nav-item"
+              onClick={() => onTabChange(item.id)}
+              style={{
+                display: "flex", alignItems: "center", gap: 10,
+                padding: "10px 12px",
+                borderRadius: 8,
+                marginBottom: 2,
+                background: active ? "rgba(255,255,255,0.06)" : "transparent",
+                position: "relative",
+              }}
+            >
+              <Icon size={18} color={active ? t.white : t.muted} />
+              <span style={{
+                fontSize: 13, fontWeight: active ? 600 : 500,
+                color: active ? t.white : t.secondary,
+                ...fontDisplay, flex: 1,
+              }}>{item.label}</span>
+              {item.badge > 0 && (
+                <div style={{
+                  minWidth: 18, height: 18, borderRadius: 9,
+                  background: t.red,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  boxShadow: "0 0 6px rgba(239,68,68,0.3)",
+                }}>
+                  <span style={{ fontSize: 9, fontWeight: 800, color: "#fff" }}>{item.badge}</span>
+                </div>
+              )}
+              {active && (
+                <div style={{
+                  position: "absolute", left: 0, top: "50%", transform: "translateY(-50%)",
+                  width: 3, height: 20, borderRadius: 2,
+                  background: t.blue,
+                }} />
+              )}
+            </div>
+          );
+        })}
+      </nav>
+
+      {/* Live Status */}
+      <div style={{
+        padding: "14px 20px",
+        borderTop: `1px solid ${t.borderSubtle}`,
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <div className="pulse-dot" style={{
+            width: 6, height: 6, borderRadius: "50%", background: t.green,
+            boxShadow: "0 0 6px rgba(34,197,94,0.4)",
+          }} />
+          <span style={{ fontSize: 11, fontWeight: 600, color: t.green, ...fontDisplay }}>
+            LIVE
+          </span>
+          <span style={{ fontSize: 10, color: t.muted, ...fontDisplay, marginLeft: "auto" }}>
+            Scanning
+          </span>
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+
+// ═══════════════════════════════════════
+// MOBILE TOP BAR (shown on small screens)
+// ═══════════════════════════════════════
+
+function MobileHeader({ alertCount }) {
+  return (
+    <header style={{
+      padding: "12px 16px",
+      display: "flex", alignItems: "center", justifyContent: "space-between",
+      borderBottom: `1px solid ${t.borderSubtle}`,
+      background: "rgba(6,8,12,0.95)",
+      backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)",
+      position: "sticky", top: 0, zIndex: 50,
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{
+          width: 28, height: 28, borderRadius: 8,
+          background: "linear-gradient(135deg, #EF4444 0%, #F59E0B 100%)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}>
+          <span style={{ fontSize: 14 }}>&#x1F997;</span>
+        </div>
+        <span style={{ fontSize: 17, fontWeight: 800, color: t.white, ...fontDisplay }}>chirp</span>
+        <span style={{
+          fontSize: 9, fontWeight: 600, color: t.dim,
+          background: "rgba(255,255,255,0.04)", padding: "2px 6px", borderRadius: 4,
+        }}>BETA</span>
+      </div>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        {alertCount > 0 && (
+          <div style={{
+            minWidth: 20, height: 20, borderRadius: 10,
+            background: t.red, display: "flex", alignItems: "center", justifyContent: "center",
+          }}>
+            <span style={{ fontSize: 10, fontWeight: 800, color: "#fff" }}>{alertCount}</span>
+          </div>
+        )}
+        <div className="pulse-dot" style={{
+          width: 6, height: 6, borderRadius: "50%", background: t.green,
+          boxShadow: "0 0 4px rgba(34,197,94,0.4)",
+        }} />
+        <span style={{ fontSize: 10, fontWeight: 600, color: t.green, ...fontDisplay }}>LIVE</span>
+      </div>
+    </header>
+  );
+}
+
+
+// ═══════════════════════════════════════
+// MOBILE BOTTOM NAV (shown on small screens)
+// ═══════════════════════════════════════
+
+function MobileBottomNav({ activeTab, onTabChange, alertCount }) {
+  const items = [
+    { id: "games",    icon: IconGames,    label: "Games" },
+    { id: "chirps",   icon: IconChirps,   label: "Chirps", badge: alertCount },
+    { id: "history",  icon: IconHistory,  label: "History" },
+    { id: "settings", icon: IconSettings, label: "Settings" },
+  ];
+
+  return (
+    <div style={{
+      position: "fixed", bottom: 0, left: 0, right: 0,
+      background: "rgba(6,8,12,0.95)",
+      backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
+      borderTop: `1px solid ${t.borderSubtle}`,
+      padding: "6px 0 env(safe-area-inset-bottom, 12px)",
+      display: "flex", justifyContent: "space-around",
+      zIndex: 50,
+    }}>
+      {items.map((item) => {
+        const active = activeTab === item.id;
+        const Icon = item.icon;
+        return (
+          <div
+            key={item.id}
+            onClick={() => onTabChange(item.id)}
+            style={{
+              display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
+              padding: "6px 16px", position: "relative", minWidth: 52,
+              borderRadius: 8, cursor: "pointer",
+            }}
+          >
+            <Icon size={18} color={active ? t.white : t.dim} />
+            <span style={{
+              fontSize: 9, fontWeight: active ? 700 : 500,
+              color: active ? t.white : t.dim, ...fontDisplay,
+            }}>{item.label}</span>
+            {item.badge > 0 && (
+              <div style={{
+                position: "absolute", top: 0, right: 6,
+                minWidth: 14, height: 14, borderRadius: 7,
+                background: t.red,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                boxShadow: "0 0 6px rgba(239,68,68,0.35)",
+              }}>
+                <span style={{ fontSize: 8, fontWeight: 800, color: "#fff" }}>{item.badge}</span>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 
 // ═══════════════════════════════════════
 // SCOREBOARD STRIP
@@ -480,43 +665,43 @@ function ScoreboardStrip({ games }) {
     <div
       className="hide-scroll"
       style={{
-        display: "flex", gap: 8, overflowX: "auto",
-        padding: "0 0 14px",
+        display: "flex", gap: 10, overflowX: "auto",
+        padding: "0 0 16px",
         borderBottom: `1px solid ${t.border}`,
-        marginBottom: 4,
+        marginBottom: 8,
       }}
     >
       {games.map((g, i) => (
-        <div key={i} style={{
-          flexShrink: 0, minWidth: 110,
+        <div key={i} className="scoreboard-chip" style={{
+          flexShrink: 0, minWidth: 130,
           background: t.card,
-          border: `1px solid ${t.border}`,
+          border: `1px solid ${g.chirp ? `${levelColor[g.level]}25` : t.border}`,
           borderRadius: t.rs,
-          borderLeft: g.chirp ? `2px solid ${levelColor[g.level]}` : `1px solid ${t.border}`,
+          borderLeft: g.chirp ? `3px solid ${levelColor[g.level]}` : `1px solid ${t.border}`,
           boxShadow: t.cardShadow,
-          opacity: g.chirp ? 1 : 0.6,
+          opacity: g.chirp ? 1 : 0.55,
         }}>
-          <div style={{ padding: "8px 10px" }}>
+          <div style={{ padding: "10px 12px" }}>
             {[{ team: g.a, score: g.as }, { team: g.h, score: g.hs }].map((row, j) => (
               <div key={j} style={{
                 display: "flex", alignItems: "center", justifyContent: "space-between",
-                marginBottom: j === 0 ? 3 : 0,
+                marginBottom: j === 0 ? 4 : 0,
               }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                  <TeamLogo team={row.team} size={14} />
-                  <span style={{ fontSize: 10, fontWeight: 700, color: t.primary, ...fontDisplay }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                  <TeamLogo team={row.team} size={16} />
+                  <span style={{ fontSize: 11, fontWeight: 700, color: t.primary, ...fontDisplay }}>
                     {TEAMS[row.team]?.abbr}
                   </span>
                 </div>
                 {g.inn && (
-                  <span style={{ ...fontMono, fontSize: 11, fontWeight: 800, color: t.white }}>
+                  <span style={{ ...fontMono, fontSize: 12, fontWeight: 800, color: t.white }}>
                     {row.score}
                   </span>
                 )}
               </div>
             ))}
             <div style={{
-              marginTop: 5, display: "flex", alignItems: "center", justifyContent: "space-between",
+              marginTop: 6, display: "flex", alignItems: "center", justifyContent: "space-between",
             }}>
               <span style={{
                 fontSize: 9, fontWeight: 600,
@@ -537,8 +722,237 @@ function ScoreboardStrip({ games }) {
   );
 }
 
+
 // ═══════════════════════════════════════
-// SCANNING SKELETON
+// CHIRP CARD
+// ═══════════════════════════════════════
+
+function ChirpCard({ alert, level, expanded, onToggle, onTapLine }) {
+  const levelConfig = {
+    strong: { color: t.red, label: "STRONG CHIRP", accentBg: t.redBg },
+    chirp:  { color: t.amber, label: "CHIRP", accentBg: t.amberBg },
+    soft:   { color: t.blue, label: "SOFT CHIRP", accentBg: t.blueBg },
+  };
+  const cfg = levelConfig[level];
+  const a = alert;
+  const isLive = a.inn > 0;
+
+  return (
+    <div className="chirp-card fade-in" style={{
+      background: t.card,
+      border: `1px solid ${t.border}`,
+      borderRadius: t.r,
+      borderLeft: `3px solid ${cfg.color}`,
+      boxShadow: level === "strong"
+        ? `0 2px 20px rgba(0,0,0,0.35), 0 0 0 1px ${cfg.color}10`
+        : t.cardShadow,
+      overflow: "hidden",
+    }}>
+      <div style={{ padding: "18px 18px 0" }}>
+
+        {/* Header: Level + Edge % */}
+        <div style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          marginBottom: 14,
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <Badge label={cfg.label} color={level === "strong" ? "red" : level === "chirp" ? "amber" : "blue"} pulse={level === "strong"} />
+            <span style={{
+              ...fontMono, fontSize: level === "strong" ? 28 : 22,
+              fontWeight: 800, color: cfg.color, letterSpacing: "-0.03em",
+            }}>
+              +{a.edge}%
+            </span>
+          </div>
+          <span style={{ fontSize: 10, color: t.muted, ...fontDisplay }}>{a.time}</span>
+        </div>
+
+        {/* Scoreboard */}
+        <div style={{
+          padding: isLive ? "14px 16px" : "12px 16px",
+          background: "rgba(255,255,255,0.02)",
+          borderRadius: t.rs,
+          border: `1px solid ${t.borderSubtle}`,
+          marginBottom: 14,
+        }}>
+          <div style={{ display: "flex", alignItems: "center" }}>
+            {/* Away */}
+            <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 10 }}>
+              <TeamLogo team={a.t1} size={isLive ? 32 : 28} />
+              <div>
+                <span style={{
+                  fontSize: 14, fontWeight: 700, color: t.white,
+                  ...fontDisplay, display: "block", lineHeight: 1,
+                }}>{TEAMS[a.t1]?.abbr}</span>
+                <span style={{
+                  fontSize: 10, color: t.muted, ...fontDisplay,
+                }}>{TEAMS[a.t1]?.name}</span>
+              </div>
+              {isLive && (
+                <span style={{
+                  ...fontMono, fontSize: 26, fontWeight: 800, color: t.white,
+                  marginLeft: "auto", letterSpacing: "-0.03em",
+                }}>{a.s1}</span>
+              )}
+            </div>
+
+            {/* Center */}
+            <div style={{
+              display: "flex", flexDirection: "column", alignItems: "center",
+              gap: 4, margin: "0 16px", flexShrink: 0,
+            }}>
+              {isLive ? (
+                <>
+                  <Diamond bases={a.bases} size={40} />
+                  <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    <div className="pulse-dot" style={{
+                      width: 4, height: 4, borderRadius: "50%", background: t.green,
+                    }} />
+                    <span style={{
+                      fontSize: 10, fontWeight: 700, color: t.green, ...fontDisplay,
+                    }}>{a.top ? "\u25B2" : "\u25BC"}{ordinal(a.inn)}</span>
+                    <OutDots count={a.outs} />
+                  </div>
+                </>
+              ) : (
+                <span style={{
+                  fontSize: 12, fontWeight: 600, color: t.muted, ...fontDisplay,
+                }}>@ 7:10 PM</span>
+              )}
+            </div>
+
+            {/* Home */}
+            <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 10, flexDirection: "row-reverse" }}>
+              <TeamLogo team={a.t2} size={isLive ? 32 : 28} />
+              <div style={{ textAlign: "right" }}>
+                <span style={{
+                  fontSize: 14, fontWeight: 700, color: t.white,
+                  ...fontDisplay, display: "block", lineHeight: 1,
+                }}>{TEAMS[a.t2]?.abbr}</span>
+                <span style={{
+                  fontSize: 10, color: t.muted, ...fontDisplay,
+                }}>{TEAMS[a.t2]?.name}</span>
+              </div>
+              {isLive && (
+                <span style={{
+                  ...fontMono, fontSize: 26, fontWeight: 800, color: t.white,
+                  marginRight: "auto", letterSpacing: "-0.03em",
+                }}>{a.s2}</span>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Matchup Context */}
+        {isLive && level !== "soft" && (
+          <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
+            <div style={{
+              flex: 1, padding: "10px 12px", borderRadius: 8,
+              background: t.blueBg, border: "1px solid rgba(59,130,246,0.08)",
+            }}>
+              <div style={{ fontSize: 9, fontWeight: 600, color: t.blue, letterSpacing: "0.04em", ...fontDisplay }}>AT BAT</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: t.white, ...fontDisplay, marginTop: 3 }}>{a.bat.name}</div>
+              <div style={{ ...fontMono, fontSize: 10, color: t.secondary, marginTop: 2 }}>{a.bat.avg} / {a.bat.hr} HR</div>
+            </div>
+            <div style={{
+              flex: 1, padding: "10px 12px", borderRadius: 8,
+              background: t.redBg, border: "1px solid rgba(239,68,68,0.08)",
+            }}>
+              <div style={{ fontSize: 9, fontWeight: 600, color: t.red, letterSpacing: "0.04em", ...fontDisplay }}>PITCHING</div>
+              <div style={{ fontSize: 13, fontWeight: 700, color: t.white, ...fontDisplay, marginTop: 3 }}>{a.pit.name}</div>
+              <div style={{ ...fontMono, fontSize: 10, color: t.secondary, marginTop: 2 }}>{a.pit.era} ERA / {a.pit.pc} pc</div>
+            </div>
+          </div>
+        )}
+
+        {/* Condition Tags */}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 5, marginBottom: 12 }}>
+          {a.wind && <Badge label={`${a.wind.dir} ${a.wind.mph} mph`} color="green" />}
+          {a.temp && <Badge label={a.temp} color="amber" />}
+          {a.pf && <Badge label={`PF ${a.pf}`} color="cyan" />}
+          {a.pit?.velo && a.pit.velo !== "\u2014" && (
+            <Badge label={`Velo ${a.pit.velo} mph`} color="red" />
+          )}
+        </div>
+
+        {/* Expandable Factor Breakdown */}
+        {a.factors && a.factors.length > 0 && (
+          <>
+            <div
+              className="tap-target"
+              onClick={onToggle}
+              style={{
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                padding: "10px 0", borderTop: `1px solid ${t.border}`,
+                borderRadius: 0,
+              }}
+            >
+              <span style={{
+                fontSize: 10, fontWeight: 700, color: t.muted,
+                letterSpacing: "0.06em", ...fontDisplay,
+              }}>WHY THIS CHIRP</span>
+              <IconChevron size={12} color={t.dim} direction={expanded ? "up" : "down"} />
+            </div>
+
+            {expanded && (
+              <div className="fade-in" style={{ paddingBottom: 10 }}>
+                {a.factors.map((f, i) => (
+                  <div key={i} style={{ marginBottom: 14 }}>
+                    <div style={{
+                      display: "flex", alignItems: "center", justifyContent: "space-between",
+                      marginBottom: 5,
+                    }}>
+                      <span style={{ fontSize: 11, fontWeight: 600, color: t.primary, ...fontDisplay }}>{f.name}</span>
+                      <span style={{ ...fontMono, fontSize: 11, fontWeight: 700, color: f.color }}>{f.mult}</span>
+                    </div>
+                    <div style={{
+                      height: 3, background: "rgba(255,255,255,0.04)",
+                      borderRadius: 2, overflow: "hidden", marginBottom: 4,
+                    }}>
+                      <div style={{
+                        height: "100%", width: `${f.pct}%`, background: f.color,
+                        borderRadius: 2, transition: "width 0.5s ease-out",
+                      }} />
+                    </div>
+                    <span style={{ fontSize: 10, color: t.muted, ...fontDisplay, lineHeight: 1.4 }}>{f.detail}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Bottom Action Bar */}
+      <div
+        className="tap-target"
+        onClick={onTapLine}
+        style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          padding: "14px 18px",
+          background: t.greenBg,
+          borderTop: `1px solid rgba(34,197,94,0.06)`,
+          borderRadius: 0,
+        }}
+      >
+        <div>
+          <span style={{ fontSize: 11, color: t.secondary, ...fontDisplay }}>{a.venue}</span>
+          <div style={{ fontSize: 9, color: t.muted, ...fontDisplay, marginTop: 2 }}>
+            Click for full breakdown
+          </div>
+        </div>
+        <span style={{
+          ...fontMono, fontSize: level === "strong" ? 22 : 18,
+          fontWeight: 800, color: t.green, letterSpacing: "-0.03em",
+        }}>{a.line}</span>
+      </div>
+    </div>
+  );
+}
+
+
+// ═══════════════════════════════════════
+// SCANNING SKELETON CARD
 // ═══════════════════════════════════════
 
 function ScanningCard({ label }) {
@@ -548,9 +962,9 @@ function ScanningCard({ label }) {
       border: `1px solid ${t.border}`,
       borderRadius: t.r,
       boxShadow: t.cardShadow,
-      padding: 16, marginBottom: 12,
+      padding: 18,
     }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
         <div className="pulse-dot" style={{
           width: 6, height: 6, borderRadius: "50%", background: t.dim,
         }} />
@@ -558,21 +972,22 @@ function ScanningCard({ label }) {
           {label}
         </span>
       </div>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-        <Skeleton w={24} h={24} r={12} />
-        <Skeleton w={56} h={10} />
+      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+        <Skeleton w={28} h={28} r={14} />
+        <Skeleton w={60} h={10} />
         <div style={{ flex: 1 }} />
-        <Skeleton w={56} h={10} />
-        <Skeleton w={24} h={24} r={12} />
+        <Skeleton w={60} h={10} />
+        <Skeleton w={28} h={28} r={14} />
       </div>
       <div style={{ display: "flex", gap: 6 }}>
-        <Skeleton w={52} h={6} />
-        <Skeleton w={64} h={6} />
-        <Skeleton w={40} h={6} />
+        <Skeleton w={56} h={6} />
+        <Skeleton w={68} h={6} />
+        <Skeleton w={44} h={6} />
       </div>
     </div>
   );
 }
+
 
 // ═══════════════════════════════════════
 // EMPTY STATE
@@ -581,92 +996,97 @@ function ScanningCard({ label }) {
 function EmptyState() {
   return (
     <div style={{
-      textAlign: "center", padding: "32px 24px 20px",
+      textAlign: "center", padding: "48px 24px 32px",
+      gridColumn: "1 / -1",
     }}>
       <div style={{
-        width: 48, height: 48, borderRadius: 14,
+        width: 56, height: 56, borderRadius: 16,
         background: "rgba(255,255,255,0.04)",
         display: "inline-flex", alignItems: "center", justifyContent: "center",
-        marginBottom: 12,
+        marginBottom: 14,
       }}>
-        <span style={{ fontSize: 22 }}>&#x1F997;</span>
+        <span style={{ fontSize: 26 }}>&#x1F997;</span>
       </div>
-      <div style={{ fontSize: 14, fontWeight: 600, color: t.secondary, ...fontDisplay }}>
+      <div style={{ fontSize: 16, fontWeight: 600, color: t.secondary, ...fontDisplay }}>
         All quiet for now
       </div>
-      <div style={{ fontSize: 11, color: t.muted, marginTop: 4, ...fontDisplay, lineHeight: 1.5 }}>
+      <div style={{ fontSize: 12, color: t.muted, marginTop: 6, ...fontDisplay, lineHeight: 1.6, maxWidth: 320, margin: "6px auto 0" }}>
         Edges surface here when conditions align.
-        <br />We're scanning every pitch.
+        We're scanning every pitch across all live games.
       </div>
     </div>
   );
 }
 
+
 // ═══════════════════════════════════════
-// BOTTOM SHEET
+// MODAL (replaces BottomSheet for web)
 // ═══════════════════════════════════════
 
-function BottomSheet({ open, onClose, title, children }) {
-  const sheetRef = useRef(null);
+function Modal({ open, onClose, title, children, width = 520 }) {
+  const modalRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleEsc = (e) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", handleEsc);
+    return () => document.removeEventListener("keydown", handleEsc);
+  }, [open, onClose]);
 
   if (!open) return null;
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 100 }}>
+    <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center" }}>
       {/* Backdrop */}
       <div
+        className="backdrop-enter"
         onClick={onClose}
         style={{
           position: "absolute", inset: 0,
           background: "rgba(0,0,0,0.6)",
-          backdropFilter: "blur(6px)",
-          WebkitBackdropFilter: "blur(6px)",
+          backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)",
         }}
       />
-      {/* Sheet */}
+      {/* Modal */}
       <div
-        ref={sheetRef}
-        className="slide-up"
+        ref={modalRef}
+        className="modal-enter"
         style={{
-          position: "absolute", bottom: 0, left: 0, right: 0,
+          position: "relative",
           background: t.surface,
-          borderRadius: "16px 16px 0 0",
+          borderRadius: t.rl,
           border: `1px solid ${t.borderHover}`,
-          borderBottom: "none",
-          maxHeight: "80vh",
+          width: "90%",
+          maxWidth: width,
+          maxHeight: "85vh",
           display: "flex", flexDirection: "column",
-          boxShadow: "0 -8px 40px rgba(0,0,0,0.5)",
+          boxShadow: t.modalShadow,
         }}
       >
-        {/* Handle */}
-        <div style={{ display: "flex", justifyContent: "center", padding: "10px 0 4px" }}>
-          <div style={{ width: 32, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.12)" }} />
-        </div>
-        {/* Title bar */}
+        {/* Header */}
         {title && (
           <div style={{
-            padding: "6px 20px 12px",
+            padding: "18px 24px",
             display: "flex", alignItems: "center", justifyContent: "space-between",
             borderBottom: `1px solid ${t.border}`,
+            flexShrink: 0,
           }}>
-            <span style={{ fontSize: 15, fontWeight: 700, color: t.white, ...fontDisplay }}>{title}</span>
+            <span style={{ fontSize: 16, fontWeight: 700, color: t.white, ...fontDisplay }}>{title}</span>
             <div
               onClick={onClose}
               className="tap-target"
               style={{
-                width: 28, height: 28, borderRadius: "50%",
+                width: 32, height: 32, borderRadius: "50%",
                 background: "rgba(255,255,255,0.06)",
                 display: "flex", alignItems: "center", justifyContent: "center",
               }}
             >
-              <svg width="12" height="12" viewBox="0 0 12 12">
-                <path d="M2 2L10 10M10 2L2 10" stroke={t.muted} strokeWidth="1.5" strokeLinecap="round" />
-              </svg>
+              <IconClose size={14} color={t.muted} />
             </div>
           </div>
         )}
         {/* Content */}
-        <div className="hide-scroll" style={{ flex: 1, overflowY: "auto", padding: "14px 20px 28px" }}>
+        <div className="custom-scroll" style={{ flex: 1, overflowY: "auto", padding: "20px 24px 28px" }}>
           {children}
         </div>
       </div>
@@ -674,64 +1094,51 @@ function BottomSheet({ open, onClose, title, children }) {
   );
 }
 
+
 // ═══════════════════════════════════════
-// BOTTOM NAV
+// FILTER BAR
 // ═══════════════════════════════════════
 
-function BottomNav({ activeCount }) {
-  const items = [
-    { icon: "\u26BE", label: "Games" },
-    { icon: "\uD83E\uDD97", label: "Chirps", active: true, badge: activeCount },
-    { icon: "\uD83D\uDCCA", label: "History" },
-    { icon: null, label: "Settings", settingsIcon: true },
+function FilterBar({ activeFilter, onFilter }) {
+  const filters = [
+    { id: "all",    label: "All Chirps" },
+    { id: "strong", label: "Strong", color: t.red },
+    { id: "chirp",  label: "Chirp",  color: t.amber },
+    { id: "soft",   label: "Soft",   color: t.blue },
   ];
 
   return (
     <div style={{
-      position: "sticky", bottom: 0, left: 0, right: 0,
-      background: "rgba(6,8,12,0.92)",
-      backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)",
-      borderTop: `1px solid ${t.borderSubtle}`,
-      padding: "8px 0 env(safe-area-inset-bottom, 16px)",
-      display: "flex", justifyContent: "space-around",
+      display: "flex", alignItems: "center", gap: 6,
+      marginBottom: 16,
     }}>
-      {items.map((item) => (
-        <div key={item.label} className="tap-target" style={{
-          display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
-          padding: "4px 16px", position: "relative", minWidth: 52,
-          borderRadius: 8,
-        }}>
-          {item.settingsIcon ? (
-            <svg width="18" height="18" viewBox="0 0 18 18" style={{ opacity: 0.35 }}>
-              <circle cx="9" cy="9" r="3" stroke={t.white} strokeWidth="1.2" fill="none" />
-              <circle cx="9" cy="2" r="1" fill={t.white} />
-              <circle cx="9" cy="16" r="1" fill={t.white} />
-              <circle cx="2" cy="9" r="1" fill={t.white} />
-              <circle cx="16" cy="9" r="1" fill={t.white} />
-            </svg>
-          ) : (
-            <span style={{ fontSize: 17, opacity: item.active ? 1 : 0.35 }}>{item.icon}</span>
-          )}
-          <span style={{
-            fontSize: 9, fontWeight: item.active ? 700 : 500,
-            color: item.active ? t.white : t.dim, ...fontDisplay,
-          }}>{item.label}</span>
-          {item.badge > 0 && (
-            <div style={{
-              position: "absolute", top: -1, right: 6,
-              minWidth: 14, height: 14, borderRadius: 7,
-              background: t.red,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              boxShadow: "0 0 6px rgba(239,68,68,0.35)",
-            }}>
-              <span style={{ fontSize: 8, fontWeight: 800, color: "#fff" }}>{item.badge}</span>
-            </div>
-          )}
-        </div>
-      ))}
+      <IconFilter size={14} color={t.muted} />
+      {filters.map((f) => {
+        const active = activeFilter === f.id;
+        return (
+          <div
+            key={f.id}
+            className="filter-btn"
+            onClick={() => onFilter(f.id)}
+            style={{
+              padding: "5px 12px",
+              borderRadius: 6,
+              fontSize: 11,
+              fontWeight: active ? 600 : 500,
+              color: active ? (f.color || t.white) : t.muted,
+              background: active ? `${f.color || t.white}10` : "transparent",
+              border: `1px solid ${active ? `${f.color || t.white}20` : "transparent"}`,
+              ...fontDisplay,
+            }}
+          >
+            {f.label}
+          </div>
+        );
+      })}
     </div>
   );
 }
+
 
 // ═══════════════════════════════════════
 // MAIN CHIRPS SCREEN
@@ -739,10 +1146,19 @@ function BottomNav({ activeCount }) {
 
 export default function ChirpsScreen() {
   const [expandedId, setExpandedId] = useState(null);
-  const [sheetOpen, setSheetOpen] = useState(false);
-  const [sheetAlert, setSheetAlert] = useState(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalAlert, setModalAlert] = useState(null);
+  const [activeTab, setActiveTab] = useState("chirps");
+  const [activeFilter, setActiveFilter] = useState("all");
+  const [isMobile, setIsMobile] = useState(false);
 
-  useEffect(() => { injectCSS(); }, []);
+  useEffect(() => {
+    injectCSS();
+    const checkMobile = () => setIsMobile(window.innerWidth < 768);
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
 
   // --- Mock Data ---
   const alerts = [
@@ -798,174 +1214,254 @@ export default function ChirpsScreen() {
     { a: "CHC", h: "STL", as: 0, hs: 0, time: "7:15", chirp: false, level: null },
   ];
 
+  const filteredAlerts = activeFilter === "all"
+    ? alerts
+    : alerts.filter((a) => a.level === activeFilter);
+
   const activeEdges = alerts.length;
   const liveCount = liveGames.filter((g) => g.inn).length;
 
-  const openSheet = (alert) => {
-    setSheetAlert(alert);
-    setSheetOpen(true);
-  };
+  const openModal = useCallback((alert) => {
+    setModalAlert(alert);
+    setModalOpen(true);
+  }, []);
 
+  const closeModal = useCallback(() => {
+    setModalOpen(false);
+  }, []);
+
+  // ── Layout ──
   return (
     <div style={{
       minHeight: "100vh",
       background: t.bg,
       color: t.white,
       ...fontDisplay,
-      display: "flex",
-      flexDirection: "column",
     }}>
-      {/* ── App Header ── */}
-      <header style={{
-        padding: "12px 20px",
-        display: "flex", alignItems: "center", justifyContent: "space-between",
-        borderBottom: `1px solid ${t.borderSubtle}`,
-        position: "sticky", top: 0, zIndex: 50,
-        background: "rgba(6,8,12,0.92)",
-        backdropFilter: "blur(16px)", WebkitBackdropFilter: "blur(16px)",
-      }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <div style={{
-            width: 28, height: 28, borderRadius: 8,
-            background: "linear-gradient(135deg, #EF4444 0%, #F59E0B 100%)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            boxShadow: "0 2px 8px rgba(239,68,68,0.15)",
-          }}>
-            <span style={{ fontSize: 14 }}>&#x1F997;</span>
-          </div>
-          <span style={{
-            fontSize: 17, fontWeight: 800, color: t.white, letterSpacing: "-0.02em",
-          }}>chirp</span>
-          <span style={{
-            fontSize: 9, fontWeight: 600, color: t.dim,
-            background: "rgba(255,255,255,0.04)",
-            padding: "2px 6px", borderRadius: 4,
-          }}>BETA</span>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-          <div className="pulse-dot" style={{
-            width: 5, height: 5, borderRadius: "50%", background: t.green,
-            boxShadow: "0 0 4px rgba(34,197,94,0.4)",
-          }} />
-          <span style={{ fontSize: 10, fontWeight: 600, color: t.green }}>LIVE</span>
-        </div>
-      </header>
+      {/* Sidebar (desktop only) */}
+      {!isMobile && (
+        <Sidebar activeTab={activeTab} onTabChange={setActiveTab} alertCount={activeEdges} />
+      )}
 
-      {/* ── Main Content ── */}
-      <main className="hide-scroll" style={{
-        flex: 1, overflowY: "auto", overflowX: "hidden",
-        padding: "16px 16px 0",
-        maxWidth: 520, width: "100%", margin: "0 auto",
+      {/* Mobile header */}
+      {isMobile && <MobileHeader alertCount={activeEdges} />}
+
+      {/* Main Content Area */}
+      <div style={{
+        marginLeft: isMobile ? 0 : 220,
+        minHeight: "100vh",
+        display: "flex",
+        flexDirection: "column",
       }}>
 
-        {/* Page Title */}
-        <div className="fade-in" style={{ marginBottom: 14 }}>
-          <h1 style={{
-            fontSize: 24, fontWeight: 800, margin: 0, letterSpacing: "-0.03em",
-          }}>Chirps</h1>
-          <p style={{
-            fontSize: 12, color: t.muted, margin: "4px 0 0", lineHeight: 1.4,
+        {/* Top Bar (desktop) */}
+        {!isMobile && (
+          <header style={{
+            padding: "16px 32px",
+            display: "flex", alignItems: "center", justifyContent: "space-between",
+            borderBottom: `1px solid ${t.borderSubtle}`,
+            background: "rgba(6,8,12,0.6)",
+            backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)",
+            position: "sticky", top: 0, zIndex: 30,
           }}>
-            {activeEdges} active edge{activeEdges !== 1 ? "s" : ""} &middot; {liveCount} live game{liveCount !== 1 ? "s" : ""}
-          </p>
-        </div>
+            <div>
+              <h1 style={{
+                fontSize: 22, fontWeight: 800, margin: 0, letterSpacing: "-0.03em",
+                ...fontDisplay,
+              }}>Chirps</h1>
+              <p style={{
+                fontSize: 12, color: t.muted, margin: "2px 0 0", ...fontDisplay,
+              }}>
+                {activeEdges} active edge{activeEdges !== 1 ? "s" : ""} &middot; {liveCount} live game{liveCount !== 1 ? "s" : ""}
+              </p>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <div className="pulse-dot" style={{
+                  width: 6, height: 6, borderRadius: "50%", background: t.green,
+                  boxShadow: "0 0 6px rgba(34,197,94,0.4)",
+                }} />
+                <span style={{ fontSize: 11, fontWeight: 600, color: t.green, ...fontDisplay }}>
+                  {liveCount} LIVE
+                </span>
+              </div>
+            </div>
+          </header>
+        )}
 
-        {/* Scoreboard Strip */}
-        <ScoreboardStrip games={liveGames} />
+        {/* Content */}
+        <main className="custom-scroll" style={{
+          flex: 1,
+          overflowY: "auto",
+          padding: isMobile ? "16px 16px 80px" : "24px 32px 32px",
+        }}>
 
-        {/* Chirp Cards */}
-        <div style={{ paddingTop: 8 }}>
-          {alerts.map((alert) => (
-            <ChirpCard
-              key={alert.id}
-              alert={alert}
-              level={alert.level}
-              expanded={expandedId === alert.id}
-              onToggle={() => setExpandedId(expandedId === alert.id ? null : alert.id)}
-              onTapLine={() => openSheet(alert)}
-            />
-          ))}
-        </div>
+          {/* Mobile page title */}
+          {isMobile && (
+            <div className="fade-in" style={{ marginBottom: 14 }}>
+              <h1 style={{ fontSize: 22, fontWeight: 800, margin: 0, letterSpacing: "-0.03em" }}>Chirps</h1>
+              <p style={{ fontSize: 12, color: t.muted, margin: "4px 0 0" }}>
+                {activeEdges} active edge{activeEdges !== 1 ? "s" : ""} &middot; {liveCount} live game{liveCount !== 1 ? "s" : ""}
+              </p>
+            </div>
+          )}
 
-        {/* Scanning State */}
-        <ScanningCard label="Scanning CHC @ STL..." />
-
-        {/* Empty State */}
-        <EmptyState />
-
-      </main>
-
-      {/* ── Bottom Nav ── */}
-      <BottomNav activeCount={activeEdges} />
-
-      {/* ── Bottom Sheet ── */}
-      <BottomSheet
-        open={sheetOpen}
-        onClose={() => setSheetOpen(false)}
-        title="Edge Breakdown"
-      >
-        {sheetAlert && (
-          <div>
-            {/* Sheet Header */}
+          {/* Summary Stats (desktop) */}
+          {!isMobile && (
             <div style={{
-              display: "flex", alignItems: "center", gap: 10, marginBottom: 20,
+              display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12,
+              marginBottom: 24,
+            }}>
+              <StatBox label="ACTIVE EDGES" value={activeEdges} color={t.white} sub="across all games" />
+              <StatBox label="STRONG CHIRPS" value={alerts.filter(a => a.level === "strong").length} color={t.red} sub="high confidence" />
+              <StatBox label="LIVE GAMES" value={liveCount} color={t.green} sub="being scanned" />
+              <StatBox label="AVG EDGE" value={`${(alerts.reduce((s, a) => s + a.edge, 0) / alerts.length).toFixed(1)}%`} color={t.amber} sub="across all chirps" />
+            </div>
+          )}
+
+          {/* Scoreboard Strip */}
+          <ScoreboardStrip games={liveGames} />
+
+          {/* Filter Bar */}
+          <div style={{ paddingTop: 12 }}>
+            <FilterBar activeFilter={activeFilter} onFilter={setActiveFilter} />
+          </div>
+
+          {/* Chirp Cards Grid */}
+          {filteredAlerts.length > 0 ? (
+            <div className="chirps-grid">
+              {filteredAlerts.map((alert) => (
+                <ChirpCard
+                  key={alert.id}
+                  alert={alert}
+                  level={alert.level}
+                  expanded={expandedId === alert.id}
+                  onToggle={() => setExpandedId(expandedId === alert.id ? null : alert.id)}
+                  onTapLine={() => openModal(alert)}
+                />
+              ))}
+              <ScanningCard label="Scanning CHC @ STL..." />
+            </div>
+          ) : (
+            <EmptyState />
+          )}
+
+        </main>
+      </div>
+
+      {/* Mobile Bottom Nav */}
+      {isMobile && (
+        <MobileBottomNav activeTab={activeTab} onTabChange={setActiveTab} alertCount={activeEdges} />
+      )}
+
+      {/* Modal (Edge Breakdown) */}
+      <Modal
+        open={modalOpen}
+        onClose={closeModal}
+        title="Edge Breakdown"
+        width={560}
+      >
+        {modalAlert && (
+          <div>
+            {/* Header */}
+            <div style={{
+              display: "flex", alignItems: "center", gap: 12, marginBottom: 24,
             }}>
               <Badge
-                label={sheetAlert.level === "strong" ? "STRONG CHIRP" : sheetAlert.level === "chirp" ? "CHIRP" : "SOFT CHIRP"}
-                color={sheetAlert.level === "strong" ? "red" : sheetAlert.level === "chirp" ? "amber" : "blue"}
-                pulse={sheetAlert.level === "strong"}
+                label={modalAlert.level === "strong" ? "STRONG CHIRP" : modalAlert.level === "chirp" ? "CHIRP" : "SOFT CHIRP"}
+                color={modalAlert.level === "strong" ? "red" : modalAlert.level === "chirp" ? "amber" : "blue"}
+                pulse={modalAlert.level === "strong"}
+                size="lg"
               />
               <span style={{
-                ...fontMono, fontSize: 22, fontWeight: 800,
-                color: sheetAlert.level === "strong" ? t.red : sheetAlert.level === "chirp" ? t.amber : t.blue,
+                ...fontMono, fontSize: 26, fontWeight: 800,
+                color: modalAlert.level === "strong" ? t.red : modalAlert.level === "chirp" ? t.amber : t.blue,
               }}>
-                +{sheetAlert.edge}%
+                +{modalAlert.edge}%
+              </span>
+            </div>
+
+            {/* Matchup */}
+            <div style={{
+              display: "flex", alignItems: "center", gap: 12, marginBottom: 24,
+              padding: "14px 16px",
+              background: "rgba(255,255,255,0.02)",
+              borderRadius: t.rs,
+              border: `1px solid ${t.borderSubtle}`,
+            }}>
+              <TeamLogo team={modalAlert.t1} size={28} />
+              <span style={{ fontSize: 14, fontWeight: 700, color: t.white, ...fontDisplay }}>
+                {TEAMS[modalAlert.t1]?.abbr}
+              </span>
+              {modalAlert.inn > 0 && (
+                <span style={{ ...fontMono, fontSize: 18, fontWeight: 800, color: t.white }}>
+                  {modalAlert.s1}
+                </span>
+              )}
+              <span style={{ fontSize: 12, color: t.dim, margin: "0 4px" }}>vs</span>
+              {modalAlert.inn > 0 && (
+                <span style={{ ...fontMono, fontSize: 18, fontWeight: 800, color: t.white }}>
+                  {modalAlert.s2}
+                </span>
+              )}
+              <span style={{ fontSize: 14, fontWeight: 700, color: t.white, ...fontDisplay }}>
+                {TEAMS[modalAlert.t2]?.abbr}
+              </span>
+              <TeamLogo team={modalAlert.t2} size={28} />
+              <span style={{ marginLeft: "auto", fontSize: 11, color: t.muted, ...fontDisplay }}>
+                {modalAlert.venue}
               </span>
             </div>
 
             {/* Factors */}
-            {sheetAlert.factors.map((f, i) => (
-              <div key={i} style={{ marginBottom: 16 }}>
-                <div style={{
-                  display: "flex", alignItems: "center", justifyContent: "space-between",
-                  marginBottom: 5,
-                }}>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: t.primary, ...fontDisplay }}>{f.name}</span>
-                  <span style={{ ...fontMono, fontSize: 12, fontWeight: 700, color: f.color }}>{f.mult}</span>
-                </div>
-                <div style={{
-                  height: 4, background: "rgba(255,255,255,0.04)",
-                  borderRadius: 2, overflow: "hidden", marginBottom: 5,
-                }}>
+            <div style={{ marginBottom: 20 }}>
+              <div style={{
+                fontSize: 10, fontWeight: 700, color: t.muted, letterSpacing: "0.06em",
+                ...fontDisplay, marginBottom: 14,
+              }}>CONTRIBUTING FACTORS</div>
+              {modalAlert.factors.map((f, i) => (
+                <div key={i} style={{ marginBottom: 18 }}>
                   <div style={{
-                    height: "100%", width: `${f.pct}%`, background: f.color,
-                    borderRadius: 2, transition: "width 0.6s ease-out",
-                  }} />
+                    display: "flex", alignItems: "center", justifyContent: "space-between",
+                    marginBottom: 6,
+                  }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: t.primary, ...fontDisplay }}>{f.name}</span>
+                    <span style={{ ...fontMono, fontSize: 13, fontWeight: 700, color: f.color }}>{f.mult}</span>
+                  </div>
+                  <div style={{
+                    height: 4, background: "rgba(255,255,255,0.04)",
+                    borderRadius: 2, overflow: "hidden", marginBottom: 6,
+                  }}>
+                    <div style={{
+                      height: "100%", width: `${f.pct}%`, background: f.color,
+                      borderRadius: 2, transition: "width 0.6s ease-out",
+                    }} />
+                  </div>
+                  <span style={{ fontSize: 11, color: t.muted, ...fontDisplay, lineHeight: 1.4 }}>{f.detail}</span>
                 </div>
-                <span style={{ fontSize: 10, color: t.muted, ...fontDisplay, lineHeight: 1.4 }}>{f.detail}</span>
-              </div>
-            ))}
+              ))}
+            </div>
 
             {/* O/U Summary */}
             <div style={{
-              marginTop: 12, padding: "16px 18px",
+              padding: "20px 24px",
               background: t.greenBg,
               borderRadius: t.rs,
               border: "1px solid rgba(34,197,94,0.08)",
               textAlign: "center",
             }}>
-              <span style={{ ...fontMono, fontSize: 20, fontWeight: 800, color: t.green }}>
-                {sheetAlert.line}
+              <span style={{ ...fontMono, fontSize: 24, fontWeight: 800, color: t.green }}>
+                {modalAlert.line}
               </span>
               <div style={{
-                fontSize: 11, color: t.secondary, marginTop: 6, ...fontDisplay, lineHeight: 1.4,
+                fontSize: 12, color: t.secondary, marginTop: 8, ...fontDisplay, lineHeight: 1.5,
               }}>
-                Edge suggests this line is <strong style={{ color: t.green }}>+{sheetAlert.edge}%</strong> favorable
+                Edge suggests this line is <strong style={{ color: t.green }}>+{modalAlert.edge}%</strong> favorable
               </div>
             </div>
           </div>
         )}
-      </BottomSheet>
+      </Modal>
     </div>
   );
 }
